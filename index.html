@@ -2,7 +2,11 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0F2537">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rumeli Cari">
     <title>Rumeli Tekel - Tedarikçi Cari & Borç Takip Sistemi</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,61 +15,97 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         [x-cloak] { display: none !important; }
-        body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background-color: #F8FAFC; }
+        body { 
+            font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Roboto", sans-serif; 
+            background-color: #F1F5F9; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* iOS Safari input auto-zoom engelleme */
+        input, select, textarea {
+            font-size: 16px !important;
+        }
+        /* Custom scrollbar for desktop & mobile */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Mobile specific touch optimizations */
+        @media (max-width: 768px) {
+            .mobile-touch-btn {
+                min-height: 46px;
+            }
+            .mobile-bottom-safe {
+                padding-bottom: env(safe-area-inset-bottom, 16px);
+            }
+        }
     </style>
 </head>
-<body x-data="tekelCloudApp()" x-init="checkAuth()" class="text-slate-800 antialiased min-h-screen flex flex-col">
+<body x-data="tekelCloudApp()" x-init="checkAuth()" class="text-slate-800 antialiased min-h-screen flex flex-col bg-slate-100">
 
     <!-- ==================== GİRİŞ EKRANI (LOGIN SCREEN) ==================== -->
-    <div x-show="!isLoggedIn" x-cloak class="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-12">
-        <div class="max-w-md w-full space-y-6 bg-slate-800/90 border border-slate-700/80 p-8 rounded-2xl shadow-2xl backdrop-blur-md">
+    <div x-show="!isLoggedIn" x-cloak class="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-8">
+        <div class="max-w-md w-full space-y-6 bg-slate-800/95 border border-slate-700/80 p-6 sm:p-8 rounded-3xl shadow-2xl backdrop-blur-md">
             <!-- Brand Header -->
             <div class="text-center space-y-2">
-                <div class="w-16 h-16 mx-auto rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg text-2xl font-bold">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-blue-700 to-blue-500 flex items-center justify-center text-white shadow-xl text-2xl font-bold">
                     <i class="fa-solid fa-wine-bottle"></i>
                 </div>
-                <h2 class="text-2xl font-extrabold text-white tracking-tight">Rumeli Tekel</h2>
-                <p class="text-xs text-slate-400">Tedarikçi Cari & Borç Takip Bulut Portalı</p>
-                <div class="inline-block px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs mt-1">
-                    <i class="fa-solid fa-cloud mr-1"></i> Tüm Cihazlardan Ortak Erişim
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Rumeli Tekel</h2>
+                <p class="text-xs sm:text-sm text-slate-400">Tedarikçi Cari & Borç Takip Bulut Portalı</p>
+                <div class="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs mt-1">
+                    <i class="fa-solid fa-mobile-screen mr-1.5 text-blue-400"></i> Mobil ve Masaüstü Canlı Erişim
                 </div>
             </div>
 
             <!-- Login Form -->
             <form @submit.prevent="submitLogin()" class="space-y-4 pt-2">
-                <div x-show="loginError" x-cloak class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                    <i class="fa-solid fa-circle-exclamation text-sm"></i>
+                <div x-show="loginError" x-cloak class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs sm:text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-base flex-shrink-0"></i>
                     <span x-text="loginError"></span>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Kullanıcı Adı</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Kullanıcı Adı</label>
                     <div class="relative">
-                        <input type="text" x-model="loginForm.username" required placeholder="ugur" 
-                               class="w-full text-sm pl-10 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                        <i class="fa-solid fa-user absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+                        <input type="text" x-model="loginForm.username" required placeholder="muslum" 
+                               class="w-full text-base pl-11 pr-3 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        <i class="fa-solid fa-user absolute left-4 top-4 text-slate-500 text-sm"></i>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">Şifre</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">Şifre</label>
                     <div class="relative">
                         <input type="password" x-model="loginForm.password" required placeholder="••••••••" 
-                               class="w-full text-sm pl-10 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                        <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+                               class="w-full text-base pl-11 pr-3 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        <i class="fa-solid fa-lock absolute left-4 top-4 text-slate-500 text-sm"></i>
                     </div>
                 </div>
 
                 <button type="submit" :disabled="isLoading" 
-                        class="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 transition duration-150 flex items-center justify-center gap-2">
-                    <span x-show="!isLoading"><i class="fa-solid fa-arrow-right-to-bracket mr-1"></i> Güvenli Giriş Yap</span>
-                    <span x-show="isLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Giriş Yapılıyor...</span>
+                        class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white font-bold text-base shadow-lg shadow-blue-600/30 transition duration-150 flex items-center justify-center gap-2">
+                    <span x-show="!isLoading" class="flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i> Güvenli Giriş Yap
+                    </span>
+                    <span x-show="isLoading" class="flex items-center gap-2">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Giriş Yapılıyor...
+                    </span>
                 </button>
             </form>
 
-            <div class="text-center pt-2 border-t border-slate-700/60">
-                <p class="text-[11px] text-slate-500">
-                    <i class="fa-solid fa-shield-halved mr-1 text-emerald-400"></i> Uçtan uca şifreli oturum ve merkezi bulut veritabanı
+            <div class="text-center pt-3 border-t border-slate-700/60">
+                <p class="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i> 256-bit SSL ve Bulut Veritabanı Korumalı
                 </p>
             </div>
         </div>
@@ -73,135 +113,237 @@
 
     <!-- ==================== ANA UYGULAMA (DASHBOARD) ==================== -->
     <div x-show="isLoggedIn" x-cloak class="min-h-screen flex flex-col flex-grow">
-        <!-- Navbar -->
-        <header class="bg-[#0F2537] text-white shadow-lg sticky top-0 z-30">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md font-bold text-xl">
-                        <i class="fa-solid fa-wine-bottle"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                            Rumeli Tekel
-                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Bulut Paneli</span>
-                        </h1>
-                        <p class="text-xs text-slate-300 hidden sm:block">Toptancı Mal Alımları, Yapılan Ödemeler ve Borç Bakiye Otomasyonu</p>
-                    </div>
-                </div>
-                
-                <div class="flex items-center space-x-2 sm:space-x-3">
-                    <!-- User Info & Logout -->
-                    <div class="hidden md:flex items-center space-x-2 mr-2 border-r border-slate-700 pr-3">
-                        <div class="text-right">
-                            <p class="text-xs font-bold text-white" x-text="currentUser.full_name"></p>
-                            <p class="text-[10px] text-emerald-400 font-mono">Çevrimiçi</p>
+        
+        <!-- Header / Mobil & Masaüstü Üst Bar -->
+        <header class="bg-[#0F2537] text-white shadow-md sticky top-0 z-30 border-b border-slate-800">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3">
+                <div class="flex justify-between items-center">
+                    
+                    <!-- Sol: Logo ve Başlık -->
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md font-bold text-lg sm:text-xl flex-shrink-0">
+                            <i class="fa-solid fa-wine-bottle"></i>
                         </div>
-                        <button @click="showPasswordModal = true" class="p-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Şifre Değiştir">
-                            <i class="fa-solid fa-key"></i>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <h1 class="text-base sm:text-xl font-bold tracking-tight text-white leading-tight">Rumeli Tekel</h1>
+                                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Bulut</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 hidden sm:block">Tedarikçi Cari & Borç Bakiye Otomasyonu</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Sağ: Profil & Aksiyonlar -->
+                    <div class="flex items-center space-x-2">
+                        <!-- Profil Kartı (Müslüm Sazan) -->
+                        <div class="flex items-center space-x-2 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60">
+                            <div class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center text-xs font-bold">
+                                MS
+                            </div>
+                            <div class="text-left hidden xs:block">
+                                <p class="text-xs font-bold text-slate-200 leading-tight">Müslüm Sazan</p>
+                            </div>
+                            <button @click="showPasswordModal = true" class="text-slate-400 hover:text-white p-1 text-xs" title="Şifre Değiştir">
+                                <i class="fa-solid fa-key"></i>
+                            </button>
+                            <button @click="logout()" class="text-red-400 hover:text-red-300 p-1 text-xs" title="Çıkış Yap">
+                                <i class="fa-solid fa-power-off"></i>
+                            </button>
+                        </div>
+
+                        <!-- Masaüstü Hızlı Excel Butonu -->
+                        <button @click="exportExcelReport()" class="hidden md:inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition" title="Excel Raporu İndir">
+                            <i class="fa-solid fa-file-excel mr-1.5"></i> Excel
                         </button>
                     </div>
-
-                    <button @click="openNewTxModal()" class="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-all duration-150">
-                        <i class="fa-solid fa-receipt mr-1.5"></i> <span class="hidden xs:inline">Yeni</span> İşlem Ekle
-                    </button>
-                    <button @click="openNewSupplierModal()" class="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition-all duration-150">
-                        <i class="fa-solid fa-truck-field mr-1.5"></i> <span class="hidden xs:inline">Yeni</span> Tedarikçi
-                    </button>
-                    <button @click="exportExcelReport()" class="inline-flex items-center px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition" title="Excel Olarak İndir">
-                        <i class="fa-solid fa-file-excel mr-1"></i> <span class="hidden sm:inline">Excel</span>
-                    </button>
-                    <button @click="logout()" class="p-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition" title="Oturumu Kapat">
-                        <i class="fa-solid fa-power-off text-sm"></i>
-                    </button>
                 </div>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <!-- Mobil Hızlı Aksiyon Barı (Parmakla Basmaya Uygun Geniş Butonlar) -->
+        <div class="bg-white border-b border-slate-200 px-3 py-2.5 sticky top-[57px] sm:top-[65px] z-20 shadow-sm">
+            <div class="max-w-7xl mx-auto flex flex-row gap-2">
+                <button @click="openNewTxModal()" 
+                        class="flex-1 mobile-touch-btn inline-flex items-center justify-center px-3 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white shadow-sm transition">
+                    <i class="fa-solid fa-receipt mr-1.5 text-sm"></i> İşlem Ekle
+                </button>
+                <button @click="openNewSupplierModal()" 
+                        class="flex-1 mobile-touch-btn inline-flex items-center justify-center px-3 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white shadow-sm transition">
+                    <i class="fa-solid fa-truck-field mr-1.5 text-sm"></i> Tedarikçi Ekle
+                </button>
+                <button @click="exportExcelReport()" 
+                        class="md:hidden mobile-touch-btn px-3 py-2.5 text-xs font-bold rounded-xl bg-slate-800 text-emerald-400 border border-slate-700 flex items-center justify-center shadow-sm" title="Excel İndir">
+                    <i class="fa-solid fa-file-excel text-base"></i>
+                </button>
+            </div>
+        </div>
 
-            <!-- KPI Summary Cards -->
-            <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
-                <!-- Total Purchases -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplam Alınan Mal</span>
-                    <span class="text-lg sm:text-xl font-extrabold text-slate-900 mt-1" x-text="formatCurrency(kpi.total_purchase)"></span>
-                    <span class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+        <!-- Main Body -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+
+            <!-- KPI Kartları (Mobilde 2 sütunlu kompakt, masaüstünde 6 sütunlu geniş) -->
+            <div class="grid grid-cols-2 lg:grid-cols-6 gap-2.5 sm:gap-4">
+                
+                <!-- 1. Toplam Alınan Mal -->
+                <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Alınan Mal</span>
+                        <span class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs"><i class="fa-solid fa-cart-flatbed"></i></span>
+                    </div>
+                    <span class="text-base sm:text-xl font-extrabold text-slate-900 mt-1 truncate" x-text="formatCurrency(kpi.total_purchase)"></span>
+                    <span class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
                         <i class="fa-solid fa-file-invoice text-blue-500"></i> Giriş Faturaları
                     </span>
                 </div>
 
-                <!-- Total Payments -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Yapılan Ödeme</span>
-                    <span class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="formatCurrency(kpi.total_payment)"></span>
-                    <span class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                        <i class="fa-solid fa-money-bill-wave text-emerald-500"></i> Kasa / Banka Çıkışı
+                <!-- 2. Yapılan Ödeme -->
+                <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ödenen</span>
+                        <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs"><i class="fa-solid fa-money-bill-wave"></i></span>
+                    </div>
+                    <span class="text-base sm:text-xl font-extrabold text-emerald-600 mt-1 truncate" x-text="formatCurrency(kpi.total_payment)"></span>
+                    <span class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-arrow-up-from-bracket text-emerald-500"></i> Kasa / Banka
                     </span>
                 </div>
 
-                <!-- Net Debt -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between" :class="kpi.net_debt > 0 ? 'bg-red-50/30 border-red-200' : ''">
-                    <span class="text-[11px] font-bold uppercase tracking-wider" :class="kpi.net_debt > 0 ? 'text-red-700' : 'text-slate-500'">Toplam Net Borcumuz</span>
-                    <span class="text-lg sm:text-xl font-extrabold mt-1" :class="kpi.net_debt > 0 ? 'text-red-600' : 'text-emerald-700'" x-text="formatCurrency(kpi.net_debt)"></span>
-                    <span class="text-[11px] mt-1 font-medium" :class="kpi.net_debt > 0 ? 'text-red-500' : 'text-emerald-600'">
-                        <i class="fa-solid fa-clock-rotate-left mr-0.5"></i> <span x-text="kpi.net_debt > 0 ? 'Ödenmesi Gereken' : 'Tüm Borçlar Kapalı'"></span>
+                <!-- 3. Net Borcumuz (Önemli Vurgu) -->
+                <div class="bg-white p-3.5 sm:p-4 rounded-2xl border shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1"
+                     :class="kpi.net_debt > 0 ? 'bg-red-50/40 border-red-200' : 'border-slate-200/90'">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider" :class="kpi.net_debt > 0 ? 'text-red-700' : 'text-slate-500'">Net Borcumuz</span>
+                        <span class="w-6 h-6 rounded-lg flex items-center justify-center text-xs" :class="kpi.net_debt > 0 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </span>
+                    </div>
+                    <span class="text-lg sm:text-xl font-extrabold mt-1 truncate" :class="kpi.net_debt > 0 ? 'text-red-600' : 'text-emerald-700'" x-text="formatCurrency(kpi.net_debt)"></span>
+                    <span class="text-[10px] mt-1 font-semibold" :class="kpi.net_debt > 0 ? 'text-red-500' : 'text-emerald-600'">
+                        <span x-text="kpi.net_debt > 0 ? 'Ödenmesi Gereken Borç' : 'Borç Bulunmuyor'"></span>
                     </span>
                 </div>
 
-                <!-- Payment Rate -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Genel Ödeme Oranı</span>
-                    <span class="text-lg sm:text-xl font-extrabold text-blue-600 mt-1" x-text="'%' + kpi.overall_pay_rate"></span>
-                    <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-                        <div class="bg-blue-600 h-1.5 rounded-full" :style="'width: ' + Math.min(kpi.overall_pay_rate, 100) + '%'"></div>
+                <!-- 4. Ödeme Oranı -->
+                <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ödeme Oranı</span>
+                        <span class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs"><i class="fa-solid fa-percent"></i></span>
+                    </div>
+                    <span class="text-base sm:text-xl font-extrabold text-blue-600 mt-1" x-text="'%' + kpi.overall_pay_rate"></span>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 mt-1.5">
+                        <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" :style="'width: ' + Math.min(kpi.overall_pay_rate, 100) + '%'"></div>
                     </div>
                 </div>
 
-                <!-- Debted Suppliers -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borçlu Toptancı</span>
-                    <span class="text-lg sm:text-xl font-extrabold text-red-600 mt-1" x-text="kpi.debtor_count"></span>
-                    <span class="text-[11px] text-slate-400 mt-1">Açık hesabı olan firma</span>
+                <!-- 5. Borçlu Toptancı -->
+                <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borçlu Firma</span>
+                        <span class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                    </div>
+                    <span class="text-base sm:text-xl font-extrabold text-red-600 mt-1" x-text="kpi.debtor_count + ' Firma'"></span>
+                    <span class="text-[10px] text-slate-400 mt-1">Açık bakiyeli</span>
                 </div>
 
-                <!-- Settled Suppliers -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borcu Kapanan</span>
-                    <span class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="kpi.closed_count"></span>
-                    <span class="text-[11px] text-slate-400 mt-1">Sıfırlanmış hesap adedi</span>
+                <!-- 6. Kapanan Hesaplar -->
+                <div class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sıfırlanan</span>
+                        <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs"><i class="fa-solid fa-circle-check"></i></span>
+                    </div>
+                    <span class="text-base sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="kpi.closed_count + ' Firma'"></span>
+                    <span class="text-[10px] text-slate-400 mt-1">Borcu kapanmış</span>
                 </div>
             </div>
 
-            <!-- Suppliers List Section -->
-            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-                <!-- Table Toolbar -->
-                <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                            <span>Toptancı & Tedarikçi Cari Borç Tablosu</span>
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600" x-text="filteredSuppliers().length + ' Tedarikçi'"></span>
-                        </h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Tüm cihazlardan anlık senkronize olan merkezi veritabanı kayıtları</p>
-                    </div>
-                    <!-- Search & Filters -->
-                    <div class="flex items-center space-x-2">
-                        <div class="relative w-full sm:w-64">
-                            <input type="text" x-model="searchQuery" placeholder="Toptancı adı ile ara..." 
-                                   class="w-full text-xs sm:text-sm pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
-                        </div>
-                        <select x-model="filterStatus" class="text-xs sm:text-sm py-1.5 px-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                            <option value="ALL">Tümü</option>
-                            <option value="DEBT">Sadece Borçlular</option>
-                            <option value="CLOSED">Borcu Kapananlar</option>
-                        </select>
-                    </div>
+            <!-- Arama & Filtreleme Toolbar (Mobilde tam genişlik) -->
+            <div class="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
+                <div class="relative flex-1">
+                    <input type="text" x-model="searchQuery" placeholder="Toptancı adı veya yetkili ara..." 
+                           class="w-full text-sm pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
                 </div>
+                <div class="flex items-center gap-2">
+                    <select x-model="filterStatus" class="flex-1 sm:w-44 text-xs sm:text-sm py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="ALL">Tümü (Hepsi)</option>
+                        <option value="DEBT">Sadece Borçlular</option>
+                        <option value="CLOSED">Borcu Kapananlar</option>
+                    </select>
+                    <span class="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-2.5 rounded-xl whitespace-nowrap" x-text="filteredSuppliers().length + ' Firma'"></span>
+                </div>
+            </div>
 
-                <!-- Table Body -->
+            <!-- ==================== 1. MOBİL KART GÖRÜNÜMÜ (@media max-width: 768px) ==================== -->
+            <div class="block md:hidden space-y-3">
+                <template x-for="s in filteredSuppliers()" :key="'mob-' + s.id">
+                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 space-y-3 transition hover:shadow">
+                        <!-- Kart Üst Başlık: İsim ve Durum -->
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 font-extrabold text-xs uppercase" x-text="s.name.substring(0,2)"></div>
+                                <div>
+                                    <button @click="openStatement(s.id)" class="text-sm font-bold text-slate-900 hover:text-blue-600 text-left transition leading-tight" x-text="s.name"></button>
+                                    <p class="text-[11px] text-slate-400 mt-0.5 truncate" x-text="s.contact_person || 'Yetkili belirtilmedi'"></p>
+                                </div>
+                            </div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap"
+                                  :class="s.status_color === 'red' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'">
+                                <span class="w-1.5 h-1.5 rounded-full mr-1" :class="s.status_color === 'red' ? 'bg-red-500' : 'bg-emerald-500'"></span>
+                                <span x-text="s.status"></span>
+                            </span>
+                        </div>
+
+                        <!-- Telefon ve Not Bilgisi (Varsa Tek Tıkla Arama Butonu) -->
+                        <div class="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-xl flex items-center justify-between" x-show="s.phone || s.notes">
+                            <span class="truncate pr-2" x-text="s.notes || 'Not eklenmedi'"></span>
+                            <template x-if="s.phone">
+                                <a :href="'tel:' + s.phone" class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg flex-shrink-0">
+                                    <i class="fa-solid fa-phone text-[10px]"></i> Ara
+                                </a>
+                            </template>
+                        </div>
+
+                        <!-- Rakamlar Grid'i (Alınan, Ödenen, Net Borç) -->
+                        <div class="grid grid-cols-3 gap-2 pt-1 text-center border-t border-slate-100">
+                            <div class="bg-slate-50 p-2 rounded-xl">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Alınan Mal</span>
+                                <span class="text-xs font-bold text-slate-700 mt-0.5 block truncate" x-text="formatCurrency(s.total_purchase)"></span>
+                            </div>
+                            <div class="bg-slate-50 p-2 rounded-xl">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Ödenen</span>
+                                <span class="text-xs font-bold text-emerald-600 mt-0.5 block truncate" x-text="formatCurrency(s.total_payment)"></span>
+                            </div>
+                            <div class="p-2 rounded-xl" :class="s.balance > 0.005 ? 'bg-red-50/70 border border-red-200/60' : 'bg-slate-50'">
+                                <span class="text-[10px] uppercase font-bold block" :class="s.balance > 0.005 ? 'text-red-600' : 'text-slate-400'">Kalan Borç</span>
+                                <span class="text-xs font-extrabold mt-0.5 block truncate" :class="s.balance > 0.005 ? 'text-red-700' : 'text-slate-700'" x-text="formatCurrency(s.balance)"></span>
+                            </div>
+                        </div>
+
+                        <!-- Mobil Kart Aksiyon Butonları (Geniş & Dokunmatik) -->
+                        <div class="flex items-center gap-2 pt-1">
+                            <button @click="openStatement(s.id)" class="flex-1 mobile-touch-btn py-2 text-xs font-bold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-[0.98] transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-list-check"></i> Ekstre Gör
+                            </button>
+                            <button @click="openNewTxModal(s.id)" class="flex-1 mobile-touch-btn py-2 text-xs font-bold rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-plus-circle"></i> İşlem Ekle
+                            </button>
+                            <button @click="confirmDeleteSupplier(s)" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition flex-shrink-0" title="Sil">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <div x-show="filteredSuppliers().length === 0" class="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6">
+                    <i class="fa-solid fa-magnifying-glass text-3xl text-slate-300 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-500">Aranan kriterlere uygun toptancı bulunamadı.</p>
+                </div>
+            </div>
+
+            <!-- ==================== 2. MASAÜSTÜ TABLO GÖRÜNÜMÜ (@media min-width: 769px) ==================== -->
+            <div class="hidden md:block bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs sm:text-sm">
+                    <table class="w-full text-left text-sm">
                         <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
                             <tr>
                                 <th class="py-3 px-3 text-center w-12">No</th>
@@ -215,7 +357,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            <template x-for="s in filteredSuppliers()" :key="s.id">
+                            <template x-for="s in filteredSuppliers()" :key="'desk-' + s.id">
                                 <tr class="hover:bg-blue-50/30 transition-colors duration-100">
                                     <td class="py-3 px-3 text-center text-slate-400 font-medium" x-text="s.seq"></td>
                                     <td class="py-3 px-4">
@@ -267,221 +409,266 @@
         </main>
 
         <!-- Footer -->
-        <footer class="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-500">
+        <footer class="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-500 mobile-bottom-safe">
             <p>Rumeli Tekel 2026 - Merkezi Bulut Cari & Borç Takip Sistemi</p>
         </footer>
     </div>
 
+    <!-- ==================== MODALLER (MOBİL UYUMLU DÜZENLER) ==================== -->
+
     <!-- MODAL 1: YENİ TEDARİKÇİ EKLE -->
-    <div x-show="showNewSupplierModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 border border-slate-100">
+    <div x-show="showNewSupplierModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 space-y-4 border border-slate-100 animate-slide-up sm:animate-none">
             <div class="flex justify-between items-center border-b pb-3 border-slate-100">
-                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-truck-field text-blue-600"></i> Yeni Toptancı / Tedarikçi Ekle
+                <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-truck-field text-blue-600"></i> Yeni Toptancı / Tedarikçi
                 </h3>
-                <button @click="showNewSupplierModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button @click="showNewSupplierModal = false" class="text-slate-400 hover:text-slate-600 p-2 text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-            <form @submit.prevent="submitNewSupplier()" class="space-y-3.5">
+            <form @submit.prevent="submitNewSupplier()" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Firma / Toptancı Unvanı *</label>
                     <input type="text" x-model="newSupplier.name" required placeholder="Örn: ANADOLU EFES, MEY İÇKİ" 
-                           class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                           class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Yetkili / Plasiyer</label>
                         <input type="text" x-model="newSupplier.contact_person" placeholder="Örn: Ahmet Bey" 
-                               class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                               class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Telefon Numarası</label>
-                        <input type="text" x-model="newSupplier.phone" placeholder="0532..." 
-                               class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <input type="tel" x-model="newSupplier.phone" placeholder="0532..." 
+                               class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Sipariş / Sevkiyat Notu</label>
                     <textarea x-model="newSupplier.notes" rows="2" placeholder="Örn: Her Perşembe sipariş günü" 
-                              class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                              class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                 </div>
-                <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showNewSupplierModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">İptal</button>
-                    <button type="submit" class="px-5 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition">Kaydet</button>
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                    <button type="button" @click="showNewSupplierModal = false" class="w-full sm:w-auto px-4 py-3 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100 transition">Vazgeç</button>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition">Kaydet</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- MODAL 2: YENİ İŞLEM EKLE (FATURA / ÖDEME) -->
-    <div x-show="showNewTxModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-slate-100">
+    <div x-show="showNewTxModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 border border-slate-100">
             <div class="flex justify-between items-center border-b pb-3 border-slate-100">
-                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-receipt text-emerald-600"></i> Yeni Hareket Kaydı (Fatura / Ödeme)
+                <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-emerald-600"></i> Yeni Hareket Kaydı
                 </h3>
-                <button @click="showNewTxModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button @click="showNewTxModal = false" class="text-slate-400 hover:text-slate-600 p-2 text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-            <form @submit.prevent="submitNewTransaction()" class="space-y-3.5">
+            <form @submit.prevent="submitNewTransaction()" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Tedarikçi Firma *</label>
-                    <select x-model.number="newTx.supplier_id" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                    <select x-model.number="newTx.supplier_id" required class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
                         <option value="">Lütfen firma seçiniz...</option>
-                        <template x-for="s in suppliers" :key="s.id">
+                        <template x-for="s in suppliers" :key="'opt-' + s.id">
                             <option :value="s.id" x-text="s.name"></option>
                         </template>
                     </select>
                 </div>
-                <!-- Transaction Type Toggle -->
-                <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+
+                <!-- İşlem Türü Toggle (Mobilde rahat basılan büyük sekmeler) -->
+                <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl">
                     <button type="button" @click="newTx.tx_type = 'PURCHASE'" 
-                            :class="newTx.tx_type === 'PURCHASE' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700 font-medium'"
-                            class="py-2 text-xs rounded-lg transition text-center flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-file-invoice text-blue-600"></i> Mal Alımı (Fatura / Giriş)
+                            :class="newTx.tx_type === 'PURCHASE' ? 'bg-white text-slate-900 font-bold shadow-md' : 'text-slate-500 hover:text-slate-700 font-medium'"
+                            class="py-2.5 text-xs sm:text-sm rounded-xl transition text-center flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-file-invoice text-blue-600"></i> Mal Alımı (Giriş)
                     </button>
                     <button type="button" @click="newTx.tx_type = 'PAYMENT'" 
-                            :class="newTx.tx_type === 'PAYMENT' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700 font-medium'"
-                            class="py-2 text-xs rounded-lg transition text-center flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Yapılan Ödeme (Çıkış)
+                            :class="newTx.tx_type === 'PAYMENT' ? 'bg-white text-slate-900 font-bold shadow-md' : 'text-slate-500 hover:text-slate-700 font-medium'"
+                            class="py-2.5 text-xs sm:text-sm rounded-xl transition text-center flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Ödeme (Çıkış)
                     </button>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">İşlem Tarihi *</label>
-                        <input type="date" x-model="newTx.date" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <input type="date" x-model="newTx.date" required class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">İrsaliye / Fatura / Makbuz No</label>
-                        <input type="text" x-model="newTx.doc_no" placeholder="Örn: FTR-2026-102" class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">İrsaliye / Fatura No</label>
+                        <input type="text" x-model="newTx.doc_no" placeholder="Örn: FTR-2026-102" class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
                 </div>
+
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">İşlem Tutarı (₺) *</label>
                     <input type="number" step="0.01" min="0.01" x-model.number="newTx.amount" required placeholder="0.00" 
-                           class="w-full text-base font-bold text-slate-900 px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                           class="w-full text-lg font-extrabold text-slate-900 px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50">
                 </div>
+
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Alınan Ürün / Açıklama</label>
-                    <input type="text" x-model="newTx.description" placeholder="Örn: Koli Bira, Rakı alımı, Banka Havalesi vb." 
-                           class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Açıklama / Ürün Kalemi</label>
+                    <input type="text" x-model="newTx.description" placeholder="Örn: Koli Bira, Rakı alımı vb." 
+                           class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 </div>
-                <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showNewTxModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">İptal</button>
-                    <button type="submit" class="px-5 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">Kaydet</button>
+
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                    <button type="button" @click="showNewTxModal = false" class="w-full sm:w-auto px-4 py-3 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100 transition">Vazgeç</button>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition">Kaydet</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL 3: TEDARİKÇİ CARİ HESAP EKSTRESİ -->
-    <div x-show="showStatementModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-slate-200">
+    <!-- MODAL 3: TEDARİKÇİ CARİ HESAP EKSTRESİ (MOBİL DUYARLI) -->
+    <div x-show="showStatementModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col border border-slate-200">
             <!-- Modal Header -->
-            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/80 rounded-t-2xl">
+            <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/90 rounded-t-3xl sm:rounded-t-2xl">
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-1.5 sm:gap-2">
                         <span x-text="currentStatement.supplier.name"></span>
-                        <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold"
+                        <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold"
                               :class="currentStatement.totals.current_balance > 0.005 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
                               x-text="currentStatement.totals.status"></span>
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Münferit Mal Alımları, Yapılan Ödemeler ve Yürüyen Bakiye Ekstresi</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Yürüyen Bakiye ve Hareket Geçmişi</p>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button @click="openNewTxModal(currentStatement.supplier.id)" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">
-                        <i class="fa-solid fa-plus mr-1"></i> Yeni Hareket
-                    </button>
-                    <button @click="showStatementModal = false" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button @click="showStatementModal = false" class="text-slate-400 hover:text-slate-600 p-2 text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Mini KPI Cards -->
+            <div class="grid grid-cols-3 gap-2 p-3 sm:p-4 bg-slate-100/70 border-b border-slate-200 text-center">
+                <div class="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Alınan Mal</span>
+                    <p class="text-xs sm:text-base font-bold text-slate-900 mt-0.5 truncate" x-text="formatCurrency(currentStatement.totals.total_purchase)"></p>
+                </div>
+                <div class="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ödeme</span>
+                    <p class="text-xs sm:text-base font-bold text-emerald-600 mt-0.5 truncate" x-text="formatCurrency(currentStatement.totals.total_payment)"></p>
+                </div>
+                <div class="bg-white p-2.5 sm:p-3 rounded-xl border shadow-sm" :class="currentStatement.totals.current_balance > 0 ? 'bg-red-50 border-red-200' : 'border-slate-200'">
+                    <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider block" :class="currentStatement.totals.current_balance > 0 ? 'text-red-600' : 'text-slate-400'">Kalan Borç</span>
+                    <p class="text-xs sm:text-base font-bold mt-0.5 truncate" :class="currentStatement.totals.current_balance > 0 ? 'text-red-700' : 'text-emerald-600'" x-text="formatCurrency(currentStatement.totals.current_balance)"></p>
                 </div>
             </div>
 
-            <!-- Statement Mini KPI Cards -->
-            <div class="grid grid-cols-3 gap-3 p-4 bg-slate-100/50 border-b border-slate-200 text-center">
-                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toplam Alınan Mal</span>
-                    <p class="text-base font-bold text-slate-900 mt-0.5" x-text="formatCurrency(currentStatement.totals.total_purchase)"></p>
+            <!-- Transactions Body (Mobilde kart listesi, masaüstünde tablo) -->
+            <div class="overflow-y-auto flex-grow p-3 sm:p-4">
+                
+                <!-- Mobil Ekstre Kartları -->
+                <div class="block sm:hidden space-y-2.5">
+                    <template x-for="t in currentStatement.transactions" :key="'mob-tx-' + t.id">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2">
+                            <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                <span class="font-bold text-slate-700" x-text="formatDate(t.date)"></span>
+                                <span x-text="t.doc_no"></span>
+                            </div>
+                            <div class="font-medium text-slate-800" x-text="t.description"></div>
+                            <div class="flex items-center justify-between pt-1 border-t border-slate-200/80">
+                                <div>
+                                    <template x-if="t.purchase_amount > 0">
+                                        <span class="font-bold text-slate-900" x-text="'+ ' + formatCurrency(t.purchase_amount) + ' (Alım)'"></span>
+                                    </template>
+                                    <template x-if="t.payment_amount > 0">
+                                        <span class="font-bold text-emerald-600" x-text="'- ' + formatCurrency(t.payment_amount) + ' (Ödeme)'"></span>
+                                    </template>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-900" x-text="'Bak: ' + formatCurrency(t.running_balance)"></span>
+                                    <button @click="deleteTransaction(t.id)" class="text-slate-400 hover:text-red-600 p-1">
+                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
-                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Yapılan Ödeme</span>
-                    <p class="text-base font-bold text-emerald-600 mt-0.5" x-text="formatCurrency(currentStatement.totals.total_payment)"></p>
-                </div>
-                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm" :class="currentStatement.totals.current_balance > 0 ? 'bg-red-50 border-red-200' : ''">
-                    <span class="text-[10px] font-bold uppercase tracking-wider" :class="currentStatement.totals.current_balance > 0 ? 'text-red-600' : 'text-slate-400'">Kalan Borcumuz</span>
-                    <p class="text-base font-bold mt-0.5" :class="currentStatement.totals.current_balance > 0 ? 'text-red-700' : 'text-emerald-600'" x-text="formatCurrency(currentStatement.totals.current_balance)"></p>
-                </div>
-            </div>
 
-            <!-- Transactions Table -->
-            <div class="overflow-y-auto flex-grow p-4">
-                <table class="w-full text-left text-xs sm:text-sm">
-                    <thead class="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[11px]">
-                        <tr>
-                            <th class="py-2.5 px-3">Tarih</th>
-                            <th class="py-2.5 px-3">Evrak / İrsaliye No</th>
-                            <th class="py-2.5 px-3">Ürün / İşlem Açıklaması</th>
-                            <th class="py-2.5 px-3 text-right">Alınan Mal (Borç)</th>
-                            <th class="py-2.5 px-3 text-right">Ödeme (Çıkış)</th>
-                            <th class="py-2.5 px-3 text-right">Kalan Bakiye</th>
-                            <th class="py-2.5 px-2 text-center w-10">Sil</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <template x-for="t in currentStatement.transactions" :key="t.id">
-                            <tr class="hover:bg-slate-50/60">
-                                <td class="py-2 px-3 text-slate-600" x-text="formatDate(t.date)"></td>
-                                <td class="py-2 px-3 font-medium text-slate-700" x-text="t.doc_no"></td>
-                                <td class="py-2 px-3 text-slate-800" x-text="t.description"></td>
-                                <td class="py-2 px-3 text-right font-medium text-slate-800" x-text="t.purchase_amount > 0 ? formatCurrency(t.purchase_amount) : '-'"></td>
-                                <td class="py-2 px-3 text-right font-medium text-emerald-600" x-text="t.payment_amount > 0 ? formatCurrency(t.payment_amount) : '-'"></td>
-                                <td class="py-2 px-3 text-right font-bold text-slate-900" x-text="formatCurrency(t.running_balance)"></td>
-                                <td class="py-2 px-2 text-center">
-                                    <button @click="deleteTransaction(t.id)" class="text-slate-300 hover:text-red-600 p-1 transition"><i class="fa-solid fa-trash-can text-xs"></i></button>
-                                </td>
+                <!-- Masaüstü Ekstre Tablosu -->
+                <div class="hidden sm:block overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[11px]">
+                            <tr>
+                                <th class="py-2.5 px-3">Tarih</th>
+                                <th class="py-2.5 px-3">Evrak / İrsaliye No</th>
+                                <th class="py-2.5 px-3">Ürün / İşlem Açıklaması</th>
+                                <th class="py-2.5 px-3 text-right">Alınan Mal (Borç)</th>
+                                <th class="py-2.5 px-3 text-right">Ödeme (Çıkış)</th>
+                                <th class="py-2.5 px-3 text-right">Kalan Bakiye</th>
+                                <th class="py-2.5 px-2 text-center w-10">Sil</th>
                             </tr>
-                        </template>
-                        <tr x-show="currentStatement.transactions.length === 0">
-                            <td colspan="7" class="py-8 text-center text-slate-400">Henüz kayıtlı bir fatura veya ödeme hareketi bulunmuyor.</td>
-                        </tr>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="t in currentStatement.transactions" :key="'desk-tx-' + t.id">
+                                <tr class="hover:bg-slate-50/60">
+                                    <td class="py-2 px-3 text-slate-600" x-text="formatDate(t.date)"></td>
+                                    <td class="py-2 px-3 font-medium text-slate-700" x-text="t.doc_no"></td>
+                                    <td class="py-2 px-3 text-slate-800" x-text="t.description"></td>
+                                    <td class="py-2 px-3 text-right font-medium text-slate-800" x-text="t.purchase_amount > 0 ? formatCurrency(t.purchase_amount) : '-'"></td>
+                                    <td class="py-2 px-3 text-right font-medium text-emerald-600" x-text="t.payment_amount > 0 ? formatCurrency(t.payment_amount) : '-'"></td>
+                                    <td class="py-2 px-3 text-right font-bold text-slate-900" x-text="formatCurrency(t.running_balance)"></td>
+                                    <td class="py-2 px-2 text-center">
+                                        <button @click="deleteTransaction(t.id)" class="text-slate-300 hover:text-red-600 p-1 transition"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div x-show="currentStatement.transactions.length === 0" class="py-8 text-center text-slate-400 text-xs sm:text-sm">
+                    Henüz kayıtlı bir fatura veya ödeme hareketi bulunmuyor.
+                </div>
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-between items-center rounded-b-2xl">
-                <span class="text-xs text-slate-400" x-text="currentStatement.transactions.length + ' Hareket Listelendi'"></span>
-                <button @click="showStatementModal = false" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition">Kapat</button>
+            <div class="px-4 sm:px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                <button @click="openNewTxModal(currentStatement.supplier.id)" class="text-xs sm:text-sm font-bold text-emerald-700 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                    <i class="fa-solid fa-plus mr-1"></i> Bu Firmaya İşlem Ekle
+                </button>
+                <button @click="showStatementModal = false" class="px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 transition">Kapat</button>
             </div>
         </div>
     </div>
 
     <!-- MODAL 4: ŞİFRE DEĞİŞTİR -->
-    <div x-show="showPasswordModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 border border-slate-100">
+    <div x-show="showPasswordModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-sm w-full p-5 sm:p-6 space-y-4 border border-slate-100">
             <div class="flex justify-between items-center border-b pb-3 border-slate-100">
                 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-key text-blue-600"></i> Şifre Değiştir
                 </h3>
-                <button @click="showPasswordModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button @click="showPasswordModal = false" class="text-slate-400 hover:text-slate-600 p-2 text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-            <form @submit.prevent="submitChangePassword()" class="space-y-3.5">
+            <form @submit.prevent="submitChangePassword()" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Mevcut Şifre</label>
-                    <input type="password" x-model="pwForm.old_password" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <input type="password" x-model="pwForm.old_password" required class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Yeni Şifre</label>
-                    <input type="password" x-model="pwForm.new_password" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <input type="password" x-model="pwForm.new_password" required class="w-full text-base px-3.5 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
-                <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showPasswordModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">İptal</button>
-                    <button type="submit" class="px-5 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition">Güncelle</button>
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                    <button type="button" @click="showPasswordModal = false" class="w-full sm:w-auto px-4 py-3 text-sm font-semibold rounded-xl text-slate-600 hover:bg-slate-100 transition">İptal</button>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow transition">Güncelle</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Application Script (Alpine.js - 100% RELATIVE PATHS FOR PRODUCTION / CLOUD) -->
+    <!-- Application Script (Alpine.js - %100 Relative Path & Production Cloud) -->
     <script>
-        // STRICT RELATIVE PATH: Works on ANY domain, Render, Railway, localhost, or subdomain
         const API_BASE = "";
 
         function tekelCloudApp() {
@@ -490,9 +677,9 @@
                 isLoading: false,
                 loginError: "",
                 token: "",
-                currentUser: { id: 1, username: "ugur", full_name: "Uğur Sukuşu" },
+                currentUser: { id: 1, username: "muslum", full_name: "Müslüm Sazan" },
 
-                loginForm: { username: "ugur", password: "" },
+                loginForm: { username: "muslum", password: "" },
                 pwForm: { old_password: "", new_password: "" },
 
                 kpi: {
@@ -537,7 +724,7 @@
                             const res = await fetch("/api/me", { headers: this.getHeaders() });
                             if (res.ok) {
                                 const data = await res.json();
-                                this.currentUser = data.user;
+                                this.currentUser = { id: 1, username: "muslum", full_name: "Müslüm Sazan" };
                                 this.isLoggedIn = true;
                                 await this.fetchDashboard();
                                 return;
@@ -547,13 +734,14 @@
                         }
                     }
                     
-                    // Direct access check - if server allows unauthenticated dashboard or auto-loads
+                    // Doğrudan açık kontrol
                     try {
                         const res = await fetch("/api/dashboard", { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
                             this.kpi = data.kpi;
                             this.suppliers = data.suppliers;
+                            this.currentUser = { id: 1, username: "muslum", full_name: "Müslüm Sazan" };
                             this.isLoggedIn = true;
                             return;
                         }
@@ -574,7 +762,7 @@
                         const data = await res.json();
                         if (res.ok && data.token) {
                             this.token = data.token;
-                            this.currentUser = data.user;
+                            this.currentUser = { id: 1, username: "muslum", full_name: "Müslüm Sazan" };
                             localStorage.setItem("rumeli_cloud_token", this.token);
                             this.isLoggedIn = true;
                             await this.fetchDashboard();
