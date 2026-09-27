@@ -1,9 +1,8 @@
 import os
-import sqlite3
 import datetime
 import hashlib
 import secrets
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,17 +12,26 @@ import io
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-DB_FILE = os.environ.get("DATABASE_PATH", "rumeli_cloud.db")
-try:
-    _test_conn = sqlite3.connect(DB_FILE)
-    _test_conn.execute("CREATE TABLE IF NOT EXISTS _test (id INT)")
-    _test_conn.close()
-except Exception:
-    DB_FILE = "/tmp/rumeli_cloud.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+IS_POSTGRES = bool(DATABASE_URL and (DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://")))
 
-app = FastAPI(title="Rumeli Tekel - Tedarikçi Cari & Borç Takip Sistemi (Production)")
+if IS_POSTGRES:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+else:
+    import sqlite3
+    DB_FILE = os.environ.get("DATABASE_PATH", "rumeli_cloud.db")
+    try:
+        _test_conn = sqlite3.connect(DB_FILE)
+        _test_conn.execute("CREATE TABLE IF NOT EXISTS _test (id INT)")
+        _test_conn.close()
+    except Exception:
+        DB_FILE = "/tmp/rumeli_cloud.db"
 
-# Enable CORS for any domain (Render, Custom Domain, Localhost)
+app = FastAPI(title="Rumeli Tekel - Tedarikçi Cari & Borç Takip Sistemi (PostgreSQL & Cloud)")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,73 +40,131 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def get_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_db_connection():
+    if IS_POSTGRES:
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        conn.autocommit = False
+        return conn
+    else:
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
+        return conn
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 def init_db():
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS sessions (
-        token TEXT PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-    );
-    """)
+    if IS_POSTGRES:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(100) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            full_name VARCHAR(150) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token VARCHAR(100) PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS suppliers (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(150) UNIQUE NOT NULL,
+            contact_person VARCHAR(150),
+            phone VARCHAR(50),
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transactions (
+            id SERIAL PRIMARY KEY,
+            supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+            date VARCHAR(20) NOT NULL,
+            doc_no VARCHAR(100),
+            description TEXT,
+            tx_type VARCHAR(20) NOT NULL,
+            amount DOUBLE PRECISION NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+    else:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS suppliers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            contact_person TEXT,
+            phone TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supplier_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            doc_no TEXT,
+            description TEXT,
+            tx_type TEXT NOT NULL,
+            amount REAL NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE CASCADE
+        );
+        """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS suppliers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        contact_person TEXT,
-        phone TEXT,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        supplier_id INTEGER NOT NULL,
-        date TEXT NOT NULL,
-        doc_no TEXT,
-        description TEXT,
-        tx_type TEXT NOT NULL,
-        amount REAL NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE CASCADE
-    );
-    """)
     conn.commit()
+
+    # Seed Admin User (Supports both muslum and ugur)
+    cursor.execute("SELECT id FROM users WHERE username = 'muslum'")
+    if not cursor.fetchone():
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, full_name) VALUES (%s, %s, %s)" if IS_POSTGRES else
+            "INSERT INTO users (username, password_hash, full_name) VALUES (?, ?, ?)",
+            ("muslum", hash_password("rumeli2026"), "Müslüm Sazan")
+        )
+        conn.commit()
 
     cursor.execute("SELECT id FROM users WHERE username = 'ugur'")
     if not cursor.fetchone():
         cursor.execute(
+            "INSERT INTO users (username, password_hash, full_name) VALUES (%s, %s, %s)" if IS_POSTGRES else
             "INSERT INTO users (username, password_hash, full_name) VALUES (?, ?, ?)",
-            ("ugur", hash_password("rumeli2026"), "Uğur Sukuşu")
+            ("ugur", hash_password("rumeli2026"), "Müslüm Sazan")
         )
         conn.commit()
 
+    # Seed 18 Suppliers
     cursor.execute("SELECT COUNT(*) as count FROM suppliers")
-    if cursor.fetchone()["count"] == 0:
+    row_count = cursor.fetchone()
+    count_val = row_count["count"] if isinstance(row_count, dict) or hasattr(row_count, "keys") else row_count[0]
+    
+    if count_val == 0:
         initial_suppliers = [
             ("WİNSTON", "JTI Distribütör", "0212 555 0101", "Haftalık perşembe"),
             ("TUBORG", "Türk Tuborg Bayi", "0212 555 0102", "Pazartesi / Cuma"),
@@ -119,28 +185,25 @@ def init_db():
             ("ETİ", "Gıda Pazarlama Bayi", "0212 555 0117", ""),
             ("EMRE SUKUŞU", "Ortak Cari / İkmal", "0532 555 0118", "Ana tedarik koordinasyonu")
         ]
+        insert_sup_sql = "INSERT INTO suppliers (name, contact_person, phone, notes) VALUES (%s, %s, %s, %s)" if IS_POSTGRES else "INSERT INTO suppliers (name, contact_person, phone, notes) VALUES (?, ?, ?, ?)"
         for name, cp, phone, notes in initial_suppliers:
-            cursor.execute(
-                "INSERT INTO suppliers (name, contact_person, phone, notes) VALUES (?, ?, ?, ?)",
-                (name, cp, phone, notes)
-            )
+            cursor.execute(insert_sup_sql, (name, cp, phone, notes))
         conn.commit()
 
         cursor.execute("SELECT id FROM suppliers WHERE name = 'EMRE SUKUŞU'")
         emre_row = cursor.fetchone()
         if emre_row:
             emre_id = emre_row["id"]
-            cursor.execute("""
-                INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (emre_id, "2026-09-27", "İRS-2026-001", "Toptan Mal Alımı (Açılış)", "PURCHASE", 1500.00))
-            cursor.execute("""
-                INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (emre_id, "2026-09-27", "ÖDM-2026-001", "Banka Havalesi / Ödeme", "PAYMENT", 1400.00))
+            insert_tx_sql = ("INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount) VALUES (%s, %s, %s, %s, %s, %s)"
+                             if IS_POSTGRES else
+                             "INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount) VALUES (?, ?, ?, ?, ?, ?)")
+            cursor.execute(insert_tx_sql, (emre_id, "2026-09-27", "İRS-2026-001", "Toptan Mal Alımı (Açılış)", "PURCHASE", 1500.00))
+            cursor.execute(insert_tx_sql, (emre_id, "2026-09-27", "ÖDM-2026-001", "Banka Havalesi / Ödeme", "PAYMENT", 1400.00))
             conn.commit()
+
     conn.close()
 
+# Pydantic Schemas
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -165,24 +228,28 @@ class TransactionCreate(BaseModel):
 
 init_db()
 
-# Optional auth dependency - if token provided, verifies; if not, allows access or falls back
 def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
-        # Fallback to default user in open mode or prompt login
-        return {"id": 1, "username": "ugur", "full_name": "Uğur Sukuşu"}
+        return {"id": 1, "username": "muslum", "full_name": "Müslüm Sazan"}
     token = authorization.replace("Bearer ", "").strip()
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    sql = ("""
+    SELECT u.id, u.username, u.full_name
+    FROM sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.token = %s
+    """ if IS_POSTGRES else """
     SELECT u.id, u.username, u.full_name
     FROM sessions s
     JOIN users u ON s.user_id = u.id
     WHERE s.token = ?
-    """, (token,))
+    """)
+    cursor.execute(sql, (token,))
     user = cursor.fetchone()
     conn.close()
     if not user:
-        return {"id": 1, "username": "ugur", "full_name": "Uğur Sukuşu"}
+        return {"id": 1, "username": "muslum", "full_name": "Müslüm Sazan"}
     return dict(user)
 
 # ----------------- AUTH ENDPOINTS -----------------
@@ -192,16 +259,22 @@ def login(payload: LoginRequest):
     username = payload.username.strip().lower()
     pw_hash = hash_password(payload.password)
 
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, full_name FROM users WHERE username = ? AND password_hash = ?", (username, pw_hash))
+    sql = ("SELECT id, username, full_name FROM users WHERE username = %s AND password_hash = %s"
+           if IS_POSTGRES else
+           "SELECT id, username, full_name FROM users WHERE username = ? AND password_hash = ?")
+    cursor.execute(sql, (username, pw_hash))
     user = cursor.fetchone()
     if not user:
         conn.close()
         raise HTTPException(status_code=400, detail="Hatalı kullanıcı adı veya şifre!")
 
     token = secrets.token_hex(32)
-    cursor.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?)", (token, user["id"]))
+    insert_session_sql = ("INSERT INTO sessions (token, user_id) VALUES (%s, %s)"
+                          if IS_POSTGRES else
+                          "INSERT INTO sessions (token, user_id) VALUES (?, ?)")
+    cursor.execute(insert_session_sql, (token, user["id"]))
     conn.commit()
     conn.close()
 
@@ -225,9 +298,10 @@ def get_me(user: dict = Depends(get_current_user)):
 def logout(authorization: Optional[str] = Header(None)):
     if authorization:
         token = authorization.replace("Bearer ", "").strip()
-        conn = get_db()
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        sql = "DELETE FROM sessions WHERE token = %s" if IS_POSTGRES else "DELETE FROM sessions WHERE token = ?"
+        cursor.execute(sql, (token,))
         conn.commit()
         conn.close()
     return {"success": True}
@@ -240,14 +314,20 @@ def change_password(payload: ChangePasswordRequest, user: dict = Depends(get_cur
     if len(payload.new_password) < 4:
         raise HTTPException(status_code=400, detail="Yeni şifre en az 4 karakter olmalıdır.")
 
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE id = ? AND password_hash = ?", (user["id"], old_hash))
+    sql_check = ("SELECT id FROM users WHERE id = %s AND password_hash = %s"
+                 if IS_POSTGRES else
+                 "SELECT id FROM users WHERE id = ? AND password_hash = ?")
+    cursor.execute(sql_check, (user["id"], old_hash))
     if not cursor.fetchone():
         conn.close()
         raise HTTPException(status_code=400, detail="Mevcut şifreniz hatalı!")
 
-    cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
+    sql_upd = ("UPDATE users SET password_hash = %s WHERE id = %s"
+               if IS_POSTGRES else
+               "UPDATE users SET password_hash = ? WHERE id = ?")
+    cursor.execute(sql_upd, (new_hash, user["id"]))
     conn.commit()
     conn.close()
     return {"success": True, "message": "Şifreniz başarıyla güncellendi."}
@@ -256,7 +336,7 @@ def change_password(payload: ChangePasswordRequest, user: dict = Depends(get_cur
 @app.get("/api/dashboard")
 @app.get("/dashboard")
 def get_dashboard_data(user: dict = Depends(get_current_user)):
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     SELECT 
@@ -270,7 +350,7 @@ def get_dashboard_data(user: dict = Depends(get_current_user)):
         COUNT(t.id) AS tx_count
     FROM suppliers s
     LEFT JOIN transactions t ON s.id = t.supplier_id
-    GROUP BY s.id
+    GROUP BY s.id, s.name, s.contact_person, s.phone, s.notes
     ORDER BY s.name ASC
     """)
     suppliers_rows = cursor.fetchall()
@@ -344,35 +424,49 @@ def create_supplier(payload: SupplierCreate, user: dict = Depends(get_current_us
     if not name:
         raise HTTPException(status_code=400, detail="Tedarikçi unvanı boş olamaz.")
     
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO suppliers (name, contact_person, phone, notes) VALUES (?, ?, ?, ?)",
-            (name, payload.contact_person.strip(), payload.phone.strip(), payload.notes.strip())
-        )
+        if IS_POSTGRES:
+            cursor.execute(
+                "INSERT INTO suppliers (name, contact_person, phone, notes) VALUES (%s, %s, %s, %s) RETURNING id",
+                (name, payload.contact_person.strip(), payload.phone.strip(), payload.notes.strip())
+            )
+            new_id = cursor.fetchone()["id"]
+        else:
+            cursor.execute(
+                "INSERT INTO suppliers (name, contact_person, phone, notes) VALUES (?, ?, ?, ?) RETURNING id",
+                (name, payload.contact_person.strip(), payload.phone.strip(), payload.notes.strip())
+            )
+            new_id = cursor.fetchone()["id"]
+        
         conn.commit()
-        new_id = cursor.lastrowid
         conn.close()
         return {"success": True, "id": new_id, "name": name}
-    except sqlite3.IntegrityError:
+    except Exception as e:
+        conn.rollback()
         conn.close()
-        raise HTTPException(status_code=400, detail=f"'{name}' isimli tedarikçi zaten kayıtlı!")
+        if "unique" in str(e).lower():
+            raise HTTPException(status_code=400, detail=f"'{name}' isimli tedarikçi zaten kayıtlı!")
+        raise HTTPException(status_code=400, detail=f"Kayıt hatası: {str(e)}")
 
 @app.delete("/api/suppliers/{supplier_id}")
 @app.delete("/suppliers/{supplier_id}")
 def delete_supplier(supplier_id: int, user: dict = Depends(get_current_user)):
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT name FROM suppliers WHERE id = ?", (supplier_id,))
+    sql_check = "SELECT name FROM suppliers WHERE id = %s" if IS_POSTGRES else "SELECT name FROM suppliers WHERE id = ?"
+    cursor.execute(sql_check, (supplier_id,))
     row = cursor.fetchone()
     if not row:
         conn.close()
         raise HTTPException(status_code=404, detail="Tedarikçi bulunamadı.")
     
     name = row["name"]
-    cursor.execute("DELETE FROM transactions WHERE supplier_id = ?", (supplier_id,))
-    cursor.execute("DELETE FROM suppliers WHERE id = ?", (supplier_id,))
+    sql_del_tx = "DELETE FROM transactions WHERE supplier_id = %s" if IS_POSTGRES else "DELETE FROM transactions WHERE supplier_id = ?"
+    sql_del_sup = "DELETE FROM suppliers WHERE id = %s" if IS_POSTGRES else "DELETE FROM suppliers WHERE id = ?"
+    cursor.execute(sql_del_tx, (supplier_id,))
+    cursor.execute(sql_del_sup, (supplier_id,))
     conn.commit()
     conn.close()
     return {"success": True, "message": f"'{name}' ve bağlı tüm hareketleri silindi."}
@@ -380,20 +474,27 @@ def delete_supplier(supplier_id: int, user: dict = Depends(get_current_user)):
 @app.get("/api/suppliers/{supplier_id}/statement")
 @app.get("/suppliers/{supplier_id}/statement")
 def get_supplier_statement(supplier_id: int, user: dict = Depends(get_current_user)):
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,))
+    sql_sup = "SELECT * FROM suppliers WHERE id = %s" if IS_POSTGRES else "SELECT * FROM suppliers WHERE id = ?"
+    cursor.execute(sql_sup, (supplier_id,))
     supplier = cursor.fetchone()
     if not supplier:
         conn.close()
         raise HTTPException(status_code=404, detail="Tedarikçi bulunamadı.")
     
-    cursor.execute("""
+    sql_tx = ("""
+    SELECT id, date, doc_no, description, tx_type, amount, created_at
+    FROM transactions
+    WHERE supplier_id = %s
+    ORDER BY date ASC, id ASC
+    """ if IS_POSTGRES else """
     SELECT id, date, doc_no, description, tx_type, amount, created_at
     FROM transactions
     WHERE supplier_id = ?
     ORDER BY date ASC, id ASC
-    """, (supplier_id,))
+    """)
+    cursor.execute(sql_tx, (supplier_id,))
     tx_rows = cursor.fetchall()
     conn.close()
 
@@ -449,35 +550,52 @@ def create_transaction(payload: TransactionCreate, user: dict = Depends(get_curr
     if payload.tx_type not in ["PURCHASE", "PAYMENT"]:
         raise HTTPException(status_code=400, detail="Geçersiz işlem türü.")
     
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM suppliers WHERE id = ?", (payload.supplier_id,))
+    sql_check = "SELECT id FROM suppliers WHERE id = %s" if IS_POSTGRES else "SELECT id FROM suppliers WHERE id = ?"
+    cursor.execute(sql_check, (payload.supplier_id,))
     if not cursor.fetchone():
         conn.close()
         raise HTTPException(status_code=404, detail="Tedarikçi bulunamadı.")
     
-    cursor.execute("""
-    INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        payload.supplier_id,
-        payload.date,
-        payload.doc_no.strip() if payload.doc_no else "",
-        payload.description.strip() if payload.description else "",
-        payload.tx_type,
-        payload.amount
-    ))
+    if IS_POSTGRES:
+        cursor.execute("""
+        INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount)
+        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+        """, (
+            payload.supplier_id,
+            payload.date,
+            payload.doc_no.strip() if payload.doc_no else "",
+            payload.description.strip() if payload.description else "",
+            payload.tx_type,
+            payload.amount
+        ))
+        new_id = cursor.fetchone()["id"]
+    else:
+        cursor.execute("""
+        INSERT INTO transactions (supplier_id, date, doc_no, description, tx_type, amount)
+        VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+        """, (
+            payload.supplier_id,
+            payload.date,
+            payload.doc_no.strip() if payload.doc_no else "",
+            payload.description.strip() if payload.description else "",
+            payload.tx_type,
+            payload.amount
+        ))
+        new_id = cursor.fetchone()["id"]
+
     conn.commit()
-    new_id = cursor.lastrowid
     conn.close()
     return {"success": True, "id": new_id}
 
 @app.delete("/api/transactions/{tx_id}")
 @app.delete("/transactions/{tx_id}")
 def delete_transaction(tx_id: int, user: dict = Depends(get_current_user)):
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM transactions WHERE id = ?", (tx_id,))
+    sql_del = "DELETE FROM transactions WHERE id = %s" if IS_POSTGRES else "DELETE FROM transactions WHERE id = ?"
+    cursor.execute(sql_del, (tx_id,))
     conn.commit()
     conn.close()
     return {"success": True}
@@ -485,7 +603,7 @@ def delete_transaction(tx_id: int, user: dict = Depends(get_current_user)):
 @app.get("/api/export/excel")
 @app.get("/export/excel")
 def export_all_to_excel(token: Optional[str] = None):
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
     SELECT 
@@ -495,7 +613,7 @@ def export_all_to_excel(token: Optional[str] = None):
         COALESCE(SUM(CASE WHEN t.tx_type = 'PAYMENT' THEN t.amount ELSE 0 END), 0) AS total_payment
     FROM suppliers s
     LEFT JOIN transactions t ON s.id = t.supplier_id
-    GROUP BY s.id
+    GROUP BY s.id, s.name
     ORDER BY s.name ASC
     """)
     rows = cursor.fetchall()
