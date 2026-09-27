@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rumeli Tekel - Tedarikci Cari & Borc Takip Sistemi</title>
+    <title>Rumeli Tekel - Tedarikçi Cari & Borç Takip Sistemi</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js CDN for reactive UI -->
@@ -14,245 +14,318 @@
         body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background-color: #F8FAFC; }
     </style>
 </head>
-<body x-data="tekelApp()" x-init="fetchDashboard()" class="text-slate-800 antialiased min-h-screen flex flex-col">
+<body x-data="tekelCloudApp()" x-init="checkAuth()" class="text-slate-800 antialiased min-h-screen flex flex-col">
 
-    <!-- Navbar -->
-    <header class="bg-[#0F2537] text-white shadow-lg sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md font-bold text-xl">
+    <!-- ==================== GİRİŞ EKRANI (LOGIN SCREEN) ==================== -->
+    <div x-show="!isLoggedIn" x-cloak class="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-12">
+        <div class="max-w-md w-full space-y-6 bg-slate-800/90 border border-slate-700/80 p-8 rounded-2xl shadow-2xl backdrop-blur-md">
+            <!-- Brand Header -->
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg text-2xl font-bold">
                     <i class="fa-solid fa-wine-bottle"></i>
                 </div>
+                <h2 class="text-2xl font-extrabold text-white tracking-tight">Rumeli Tekel</h2>
+                <p class="text-xs text-slate-400">Tedarikçi Cari & Borç Takip Bulut Portalı</p>
+                <div class="inline-block px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs mt-1">
+                    <i class="fa-solid fa-cloud mr-1"></i> Tüm Cihazlardan Ortak Erişim
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <form @submit.prevent="submitLogin()" class="space-y-4 pt-2">
+                <div x-show="loginError" x-cloak class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-sm"></i>
+                    <span x-text="loginError"></span>
+                </div>
+
                 <div>
-                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                        Rumeli Tekel
-                        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">Cari Takip Paneli</span>
-                    </h1>
-                    <p class="text-xs text-slate-300 hidden sm:block">Toptanci Mal Alimlari, Yapilan Odemeler ve Borc Bakiye Otomasyonu</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-2 sm:space-x-3">
-                <button @click="openNewTxModal()" class="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-all duration-150">
-                    <i class="fa-solid fa-receipt mr-1.5"></i> <span class="hidden xs:inline">Yeni</span> Islem Ekle
-                </button>
-                <button @click="openNewSupplierModal()" class="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition-all duration-150">
-                    <i class="fa-solid fa-truck-field mr-1.5"></i> <span class="hidden xs:inline">Yeni</span> Tedarikci
-                </button>
-                <a href="/api/export/excel" class="inline-flex items-center px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Excel Olarak Indir">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
-                </a>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Container -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-
-        <!-- KPI Summary Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
-            <!-- Total Purchases -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplam Alinan Mal</span>
-                <span class="text-lg sm:text-xl font-extrabold text-slate-900 mt-1" x-text="formatCurrency(kpi.total_purchase)"></span>
-                <span class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                    <i class="fa-solid fa-file-invoice text-blue-500"></i> Giris Faturalari
-                </span>
-            </div>
-
-            <!-- Total Payments -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Yapilan Odeme</span>
-                <span class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="formatCurrency(kpi.total_payment)"></span>
-                <span class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                    <i class="fa-solid fa-money-bill-wave text-emerald-500"></i> Kasa / Banka Cikisi
-                </span>
-            </div>
-
-            <!-- Net Debt -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between" :class="kpi.net_debt > 0 ? "bg-red-50/30 border-red-200" : """>
-                <span class="text-[11px] font-bold uppercase tracking-wider" :class="kpi.net_debt > 0 ? "text-red-700" : "text-slate-500"">Toplam Net Borcumuz</span>
-                <span class="text-lg sm:text-xl font-extrabold mt-1" :class="kpi.net_debt > 0 ? "text-red-600" : "text-emerald-700"" x-text="formatCurrency(kpi.net_debt)"></span>
-                <span class="text-[11px] mt-1 font-medium" :class="kpi.net_debt > 0 ? "text-red-500" : "text-emerald-600"">
-                    <i class="fa-solid fa-clock-rotate-left mr-0.5"></i> <span x-text="kpi.net_debt > 0 ? "Odenmesi Gereken" : "Tum Borclar Kapali""></span>
-                </span>
-            </div>
-
-            <!-- Payment Rate -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Genel Odeme Orani</span>
-                <span class="text-lg sm:text-xl font-extrabold text-blue-600 mt-1" x-text=""%" + kpi.overall_pay_rate"></span>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-                    <div class="bg-blue-600 h-1.5 rounded-full" :style=""width: " + Math.min(kpi.overall_pay_rate, 100) + "%""></div>
-                </div>
-            </div>
-
-            <!-- Debted Suppliers -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borclu Toptanci</span>
-                <span class="text-lg sm:text-xl font-extrabold text-red-600 mt-1" x-text="kpi.debtor_count"></span>
-                <span class="text-[11px] text-slate-400 mt-1">Acik hesabi olan firma</span>
-            </div>
-
-            <!-- Settled Suppliers -->
-            <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borcu Kapanan</span>
-                <span class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="kpi.closed_count"></span>
-                <span class="text-[11px] text-slate-400 mt-1">Sifirlanmis hesap adedi</span>
-            </div>
-        </div>
-
-        <!-- Suppliers List Section -->
-        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-            <!-- Table Header / Toolbar -->
-            <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                        <span>Toptanci & Tedarikci Cari Borc Tablosu</span>
-                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600" x-text="filteredSuppliers().length + " Tedarikci""></span>
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Toptanci bazli toplam alimlar, yapilan odemeler ve net kalan borc durumlari</p>
-                </div>
-                <!-- Search & Filters -->
-                <div class="flex items-center space-x-2">
-                    <div class="relative w-full sm:w-64">
-                        <input type="text" x-model="searchQuery" placeholder="Toptanci adi ile ara..." 
-                               class="w-full text-xs sm:text-sm pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Kullanıcı Adı</label>
+                    <div class="relative">
+                        <input type="text" x-model="loginForm.username" required placeholder="ugur" 
+                               class="w-full text-sm pl-10 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        <i class="fa-solid fa-user absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
                     </div>
-                    <select x-model="filterStatus" class="text-xs sm:text-sm py-1.5 px-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                        <option value="ALL">Tumu</option>
-                        <option value="DEBT">Sadece Borclular</option>
-                        <option value="CLOSED">Borcu Kapananlar</option>
-                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Şifre</label>
+                    <div class="relative">
+                        <input type="password" x-model="loginForm.password" required placeholder="••••••••" 
+                               class="w-full text-sm pl-10 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+                    </div>
+                </div>
+
+                <button type="submit" :disabled="isLoading" 
+                        class="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 transition duration-150 flex items-center justify-center gap-2">
+                    <span x-show="!isLoading"><i class="fa-solid fa-arrow-right-to-bracket mr-1"></i> Güvenli Giriş Yap</span>
+                    <span x-show="isLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Giriş Yapılıyor...</span>
+                </button>
+            </form>
+
+            <div class="text-center pt-2 border-t border-slate-700/60">
+                <p class="text-[11px] text-slate-500">
+                    <i class="fa-solid fa-shield-halved mr-1 text-emerald-400"></i> Uçtan uca şifreli oturum ve merkezi bulut veritabanı
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ANA UYGULAMA (DASHBOARD) ==================== -->
+    <div x-show="isLoggedIn" x-cloak class="min-h-screen flex flex-col flex-grow">
+        <!-- Navbar -->
+        <header class="bg-[#0F2537] text-white shadow-lg sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md font-bold text-xl">
+                        <i class="fa-solid fa-wine-bottle"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                            Rumeli Tekel
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Bulut Paneli</span>
+                        </h1>
+                        <p class="text-xs text-slate-300 hidden sm:block">Toptancı Mal Alımları, Yapılan Ödemeler ve Borç Bakiye Otomasyonu</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <!-- User Info & Logout -->
+                    <div class="hidden md:flex items-center space-x-2 mr-2 border-r border-slate-700 pr-3">
+                        <div class="text-right">
+                            <p class="text-xs font-bold text-white" x-text="currentUser.full_name"></p>
+                            <p class="text-[10px] text-emerald-400 font-mono">Çevrimiçi</p>
+                        </div>
+                        <button @click="showPasswordModal = true" class="p-1.5 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition" title="Şifre Değiştir">
+                            <i class="fa-solid fa-key"></i>
+                        </button>
+                    </div>
+
+                    <button @click="openNewTxModal()" class="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-all duration-150">
+                        <i class="fa-solid fa-receipt mr-1.5"></i> <span class="hidden xs:inline">Yeni</span> İşlem Ekle
+                    </button>
+                    <button @click="openNewSupplierModal()" class="inline-flex items-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition-all duration-150">
+                        <i class="fa-solid fa-truck-field mr-1.5"></i> <span class="hidden xs:inline">Yeni</span> Tedarikçi
+                    </button>
+                    <button @click="exportExcelReport()" class="inline-flex items-center px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition" title="Excel Olarak İndir">
+                        <i class="fa-solid fa-file-excel mr-1"></i> <span class="hidden sm:inline">Excel</span>
+                    </button>
+                    <button @click="logout()" class="p-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition" title="Oturumu Kapat">
+                        <i class="fa-solid fa-power-off text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+            <!-- KPI Summary Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+                <!-- Total Purchases -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Toplam Alınan Mal</span>
+                    <span class="text-lg sm:text-xl font-extrabold text-slate-900 mt-1" x-text="formatCurrency(kpi.total_purchase)"></span>
+                    <span class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-file-invoice text-blue-500"></i> Giriş Faturaları
+                    </span>
+                </div>
+
+                <!-- Total Payments -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Yapılan Ödeme</span>
+                    <span class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="formatCurrency(kpi.total_payment)"></span>
+                    <span class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-money-bill-wave text-emerald-500"></i> Kasa / Banka Çıkışı
+                    </span>
+                </div>
+
+                <!-- Net Debt -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between" :class="kpi.net_debt > 0 ? 'bg-red-50/30 border-red-200' : ''">
+                    <span class="text-[11px] font-bold uppercase tracking-wider" :class="kpi.net_debt > 0 ? 'text-red-700' : 'text-slate-500'">Toplam Net Borcumuz</span>
+                    <span class="text-lg sm:text-xl font-extrabold mt-1" :class="kpi.net_debt > 0 ? 'text-red-600' : 'text-emerald-700'" x-text="formatCurrency(kpi.net_debt)"></span>
+                    <span class="text-[11px] mt-1 font-medium" :class="kpi.net_debt > 0 ? 'text-red-500' : 'text-emerald-600'">
+                        <i class="fa-solid fa-clock-rotate-left mr-0.5"></i> <span x-text="kpi.net_debt > 0 ? 'Ödenmesi Gereken' : 'Tüm Borçlar Kapalı'"></span>
+                    </span>
+                </div>
+
+                <!-- Payment Rate -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Genel Ödeme Oranı</span>
+                    <span class="text-lg sm:text-xl font-extrabold text-blue-600 mt-1" x-text="'%' + kpi.overall_pay_rate"></span>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                        <div class="bg-blue-600 h-1.5 rounded-full" :style="'width: ' + Math.min(kpi.overall_pay_rate, 100) + '%'"></div>
+                    </div>
+                </div>
+
+                <!-- Debted Suppliers -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borçlu Toptancı</span>
+                    <span class="text-lg sm:text-xl font-extrabold text-red-600 mt-1" x-text="kpi.debtor_count"></span>
+                    <span class="text-[11px] text-slate-400 mt-1">Açık hesabı olan firma</span>
+                </div>
+
+                <!-- Settled Suppliers -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Borcu Kapanan</span>
+                    <span class="text-lg sm:text-xl font-extrabold text-emerald-600 mt-1" x-text="kpi.closed_count"></span>
+                    <span class="text-[11px] text-slate-400 mt-1">Sıfırlanmış hesap adedi</span>
                 </div>
             </div>
 
-            <!-- Table Body -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs sm:text-sm">
-                    <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
-                        <tr>
-                            <th class="py-3 px-3 text-center w-12">No</th>
-                            <th class="py-3 px-4">Toptanci / Tedarikci</th>
-                            <th class="py-3 px-4 text-right">Toplam Alinan Mal</th>
-                            <th class="py-3 px-4 text-right">Yapilan Odeme</th>
-                            <th class="py-3 px-4 text-right">Kalan Borcumuz</th>
-                            <th class="py-3 px-4 text-center">Odeme Orani</th>
-                            <th class="py-3 px-4 text-center">Durum</th>
-                            <th class="py-3 px-4 text-center w-40">Islemler</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <template x-for="s in filteredSuppliers()" :key="s.id">
-                            <tr class="hover:bg-blue-50/30 transition-colors duration-100">
-                                <td class="py-3 px-3 text-center text-slate-400 font-medium" x-text="s.seq"></td>
-                                <td class="py-3 px-4">
-                                    <div class="flex items-center space-x-2">
-                                        <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs uppercase" x-text="s.name.substring(0,2)"></div>
-                                        <div>
-                                            <button @click="openStatement(s.id)" class="font-bold text-slate-900 hover:text-blue-600 text-left transition" x-text="s.name"></button>
-                                            <p class="text-[11px] text-slate-400 truncate max-w-xs" x-text="s.contact_person ? s.contact_person + (s.phone ? " - " + s.phone : "") : (s.phone || "")"></p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-3 px-4 text-right font-medium text-slate-700" x-text="formatCurrency(s.total_purchase)"></td>
-                                <td class="py-3 px-4 text-right font-medium text-emerald-600" x-text="formatCurrency(s.total_payment)"></td>
-                                <td class="py-3 px-4 text-right font-bold text-sm" 
-                                    :class="s.balance > 0.005 ? "text-red-600" : (s.balance < -0.005 ? "text-blue-600" : "text-slate-800")" 
-                                    x-text="formatCurrency(s.balance)">
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-md" 
-                                          :class="s.pay_rate >= 100 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : (s.pay_rate > 0 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500")" 
-                                          x-text=""%" + s.pay_rate">
-                                    </span>
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
-                                          :class="s.status_color === "red" ? "bg-red-50 text-red-700 border border-red-200/60" : (s.status_color === "blue" ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200/60")">
-                                        <span class="w-1.5 h-1.5 rounded-full mr-1.5"
-                                              :class="s.status_color === "red" ? "bg-red-500" : (s.status_color === "blue" ? "bg-blue-500" : "bg-emerald-500")"></span>
-                                        <span x-text="s.status"></span>
-                                    </span>
-                                </td>
-                                <td class="py-3 px-4 text-center space-x-1">
-                                    <button @click="openStatement(s.id)" class="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition" title="Ekstreyi Goruntule">
-                                        <i class="fa-solid fa-list-check mr-1"></i> Ekstre
-                                    </button>
-                                    <button @click="openNewTxModal(s.id)" class="p-1.5 text-xs text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition" title="Islem Ekle">
-                                        <i class="fa-solid fa-plus-circle"></i>
-                                    </button>
-                                    <button @click="confirmDeleteSupplier(s)" class="p-1.5 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition" title="Tedarikciyi Sil">
-                                        <i class="fa-solid fa-trash-can"></i>
-                                    </button>
-                                </td>
+            <!-- Suppliers List Section -->
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <!-- Table Toolbar -->
+                <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <span>Toptancı & Tedarikçi Cari Borç Tablosu</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600" x-text="filteredSuppliers().length + ' Tedarikçi'"></span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Tüm cihazlardan anlık senkronize olan merkezi veritabanı kayıtları</p>
+                    </div>
+                    <!-- Search & Filters -->
+                    <div class="flex items-center space-x-2">
+                        <div class="relative w-full sm:w-64">
+                            <input type="text" x-model="searchQuery" placeholder="Toptancı adı ile ara..." 
+                                   class="w-full text-xs sm:text-sm pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                        </div>
+                        <select x-model="filterStatus" class="text-xs sm:text-sm py-1.5 px-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <option value="ALL">Tümü</option>
+                            <option value="DEBT">Sadece Borçlular</option>
+                            <option value="CLOSED">Borcu Kapananlar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Table Body -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
+                            <tr>
+                                <th class="py-3 px-3 text-center w-12">No</th>
+                                <th class="py-3 px-4">Toptancı / Tedarikçi</th>
+                                <th class="py-3 px-4 text-right">Toplam Alınan Mal</th>
+                                <th class="py-3 px-4 text-right">Yapılan Ödeme</th>
+                                <th class="py-3 px-4 text-right">Kalan Borcumuz</th>
+                                <th class="py-3 px-4 text-center">Ödeme Oranı</th>
+                                <th class="py-3 px-4 text-center">Durum</th>
+                                <th class="py-3 px-4 text-center w-40">İşlemler</th>
                             </tr>
-                        </template>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="s in filteredSuppliers()" :key="s.id">
+                                <tr class="hover:bg-blue-50/30 transition-colors duration-100">
+                                    <td class="py-3 px-3 text-center text-slate-400 font-medium" x-text="s.seq"></td>
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs uppercase" x-text="s.name.substring(0,2)"></div>
+                                            <div>
+                                                <button @click="openStatement(s.id)" class="font-bold text-slate-900 hover:text-blue-600 text-left transition" x-text="s.name"></button>
+                                                <p class="text-[11px] text-slate-400 truncate max-w-xs" x-text="s.contact_person ? s.contact_person + (s.phone ? ' - ' + s.phone : '') : (s.phone || '')"></p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-right font-medium text-slate-700" x-text="formatCurrency(s.total_purchase)"></td>
+                                    <td class="py-3 px-4 text-right font-medium text-emerald-600" x-text="formatCurrency(s.total_payment)"></td>
+                                    <td class="py-3 px-4 text-right font-bold text-sm" 
+                                        :class="s.balance > 0.005 ? 'text-red-600' : (s.balance < -0.005 ? 'text-blue-600' : 'text-slate-800')" 
+                                        x-text="formatCurrency(s.balance)">
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-md" 
+                                              :class="s.pay_rate >= 100 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : (s.pay_rate > 0 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500')" 
+                                              x-text="'%' + s.pay_rate">
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                                              :class="s.status_color === 'red' ? 'bg-red-50 text-red-700 border border-red-200/60' : (s.status_color === 'blue' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60')">
+                                            <span class="w-1.5 h-1.5 rounded-full mr-1.5"
+                                                  :class="s.status_color === 'red' ? 'bg-red-500' : (s.status_color === 'blue' ? 'bg-blue-500' : 'bg-emerald-500')"></span>
+                                            <span x-text="s.status"></span>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center space-x-1">
+                                        <button @click="openStatement(s.id)" class="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition" title="Ekstreyi Görüntüle">
+                                            <i class="fa-solid fa-list-check mr-1"></i> Ekstre
+                                        </button>
+                                        <button @click="openNewTxModal(s.id)" class="p-1.5 text-xs text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition" title="İşlem Ekle">
+                                            <i class="fa-solid fa-plus-circle"></i>
+                                        </button>
+                                        <button @click="confirmDeleteSupplier(s)" class="p-1.5 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition" title="Tedarikçiyi Sil">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
-    </main>
+        </main>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-500">
-        <p>Rumeli Tekel 2026 - Tedarikci Bakiye & Odeme Takip Sistemi</p>
-    </footer>
+        <!-- Footer -->
+        <footer class="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-500">
+            <p>Rumeli Tekel 2026 - Merkezi Bulut Cari & Borç Takip Sistemi</p>
+        </footer>
+    </div>
 
-    <!-- MODAL 1: YENI TEDARIKCI EKLE -->
+    <!-- MODAL 1: YENİ TEDARİKÇİ EKLE -->
     <div x-show="showNewSupplierModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 border border-slate-100">
             <div class="flex justify-between items-center border-b pb-3 border-slate-100">
                 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-truck-field text-blue-600"></i> Yeni Toptanci / Tedarikci Ekle
+                    <i class="fa-solid fa-truck-field text-blue-600"></i> Yeni Toptancı / Tedarikçi Ekle
                 </h3>
                 <button @click="showNewSupplierModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <form @submit.prevent="submitNewSupplier()" class="space-y-3.5">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Firma / Toptanci Unvani *</label>
-                    <input type="text" x-model="newSupplier.name" required placeholder="Orn: ANADOLU EFES, MEY ICKI" 
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Firma / Toptancı Unvanı *</label>
+                    <input type="text" x-model="newSupplier.name" required placeholder="Örn: ANADOLU EFES, MEY İÇKİ" 
                            class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Yetkili / Plasiyer</label>
-                        <input type="text" x-model="newSupplier.contact_person" placeholder="Orn: Ahmet Bey" 
+                        <input type="text" x-model="newSupplier.contact_person" placeholder="Örn: Ahmet Bey" 
                                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Telefon Numarasi</label>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Telefon Numarası</label>
                         <input type="text" x-model="newSupplier.phone" placeholder="0532..." 
                                class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Siparis / Sevkiyat Notu</label>
-                    <textarea x-model="newSupplier.notes" rows="2" placeholder="Orn: Her Persembe siparis gunu" 
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Sipariş / Sevkiyat Notu</label>
+                    <textarea x-model="newSupplier.notes" rows="2" placeholder="Örn: Her Perşembe sipariş günü" 
                               class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showNewSupplierModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">Iptal</button>
+                    <button type="button" @click="showNewSupplierModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">İptal</button>
                     <button type="submit" class="px-5 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition">Kaydet</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL 2: YENI ISLEM EKLE (FATURA / ODEME) -->
+    <!-- MODAL 2: YENİ İŞLEM EKLE (FATURA / ÖDEME) -->
     <div x-show="showNewTxModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 border border-slate-100">
             <div class="flex justify-between items-center border-b pb-3 border-slate-100">
                 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-receipt text-emerald-600"></i> Yeni Hareket Kaydi (Fatura / Odeme)
+                    <i class="fa-solid fa-receipt text-emerald-600"></i> Yeni Hareket Kaydı (Fatura / Ödeme)
                 </h3>
                 <button @click="showNewTxModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <form @submit.prevent="submitNewTransaction()" class="space-y-3.5">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Tedarikci Firma *</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Tedarikçi Firma *</label>
                     <select x-model.number="newTx.supplier_id" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
-                        <option value="">Lutfen firma seciniz...</option>
+                        <option value="">Lütfen firma seçiniz...</option>
                         <template x-for="s in suppliers" :key="s.id">
                             <option :value="s.id" x-text="s.name"></option>
                         </template>
@@ -260,46 +333,46 @@
                 </div>
                 <!-- Transaction Type Toggle -->
                 <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-                    <button type="button" @click="newTx.tx_type = "PURCHASE"" 
-                            :class="newTx.tx_type === "PURCHASE" ? "bg-white text-slate-900 font-bold shadow-sm" : "text-slate-500 hover:text-slate-700 font-medium""
+                    <button type="button" @click="newTx.tx_type = 'PURCHASE'" 
+                            :class="newTx.tx_type === 'PURCHASE' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700 font-medium'"
                             class="py-2 text-xs rounded-lg transition text-center flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-file-invoice text-blue-600"></i> Mal Alimi (Fatura / Giris)
+                        <i class="fa-solid fa-file-invoice text-blue-600"></i> Mal Alımı (Fatura / Giriş)
                     </button>
-                    <button type="button" @click="newTx.tx_type = "PAYMENT"" 
-                            :class="newTx.tx_type === "PAYMENT" ? "bg-white text-slate-900 font-bold shadow-sm" : "text-slate-500 hover:text-slate-700 font-medium""
+                    <button type="button" @click="newTx.tx_type = 'PAYMENT'" 
+                            :class="newTx.tx_type === 'PAYMENT' ? 'bg-white text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700 font-medium'"
                             class="py-2 text-xs rounded-lg transition text-center flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Yapilan Odeme (Cikis)
+                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i> Yapılan Ödeme (Çıkış)
                     </button>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Islem Tarihi *</label>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">İşlem Tarihi *</label>
                         <input type="date" x-model="newTx.date" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Irsaliye / Fatura / Makbuz No</label>
-                        <input type="text" x-model="newTx.doc_no" placeholder="Orn: FTR-2026-102" class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">İrsaliye / Fatura / Makbuz No</label>
+                        <input type="text" x-model="newTx.doc_no" placeholder="Örn: FTR-2026-102" class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Islem Tutari (TL) *</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">İşlem Tutarı (₺) *</label>
                     <input type="number" step="0.01" min="0.01" x-model.number="newTx.amount" required placeholder="0.00" 
                            class="w-full text-base font-bold text-slate-900 px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Alinan Urun / Aciklama</label>
-                    <input type="text" x-model="newTx.description" placeholder="Orn: Koli Bira, Raki alimi, Banka Havalesi vb." 
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Alınan Ürün / Açıklama</label>
+                    <input type="text" x-model="newTx.description" placeholder="Örn: Koli Bira, Rakı alımı, Banka Havalesi vb." 
                            class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showNewTxModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">Iptal</button>
+                    <button type="button" @click="showNewTxModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">İptal</button>
                     <button type="submit" class="px-5 py-2 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">Kaydet</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL 3: TEDARIKCI CARI HESAP EKSTRESI -->
+    <!-- MODAL 3: TEDARİKÇİ CARİ HESAP EKSTRESİ -->
     <div x-show="showStatementModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
         <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-slate-200">
             <!-- Modal Header -->
@@ -308,10 +381,10 @@
                     <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <span x-text="currentStatement.supplier.name"></span>
                         <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold"
-                              :class="currentStatement.totals.current_balance > 0.005 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700""
+                              :class="currentStatement.totals.current_balance > 0.005 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'"
                               x-text="currentStatement.totals.status"></span>
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Munferit Mal Alimlari, Yapilan Odemeler ve Yuruyen Bakiye Ekstresi</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Münferit Mal Alımları, Yapılan Ödemeler ve Yürüyen Bakiye Ekstresi</p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <button @click="openNewTxModal(currentStatement.supplier.id)" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">
@@ -324,16 +397,16 @@
             <!-- Statement Mini KPI Cards -->
             <div class="grid grid-cols-3 gap-3 p-4 bg-slate-100/50 border-b border-slate-200 text-center">
                 <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toplam Alinan Mal</span>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toplam Alınan Mal</span>
                     <p class="text-base font-bold text-slate-900 mt-0.5" x-text="formatCurrency(currentStatement.totals.total_purchase)"></p>
                 </div>
                 <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Yapilan Odeme</span>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Yapılan Ödeme</span>
                     <p class="text-base font-bold text-emerald-600 mt-0.5" x-text="formatCurrency(currentStatement.totals.total_payment)"></p>
                 </div>
-                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm" :class="currentStatement.totals.current_balance > 0 ? "bg-red-50 border-red-200" : """>
-                    <span class="text-[10px] font-bold uppercase tracking-wider" :class="currentStatement.totals.current_balance > 0 ? "text-red-600" : "text-slate-400"">Kalan Borcumuz</span>
-                    <p class="text-base font-bold mt-0.5" :class="currentStatement.totals.current_balance > 0 ? "text-red-700" : "text-emerald-600"" x-text="formatCurrency(currentStatement.totals.current_balance)"></p>
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm" :class="currentStatement.totals.current_balance > 0 ? 'bg-red-50 border-red-200' : ''">
+                    <span class="text-[10px] font-bold uppercase tracking-wider" :class="currentStatement.totals.current_balance > 0 ? 'text-red-600' : 'text-slate-400'">Kalan Borcumuz</span>
+                    <p class="text-base font-bold mt-0.5" :class="currentStatement.totals.current_balance > 0 ? 'text-red-700' : 'text-emerald-600'" x-text="formatCurrency(currentStatement.totals.current_balance)"></p>
                 </div>
             </div>
 
@@ -343,10 +416,10 @@
                     <thead class="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[11px]">
                         <tr>
                             <th class="py-2.5 px-3">Tarih</th>
-                            <th class="py-2.5 px-3">Evrak / Irsaliye No</th>
-                            <th class="py-2.5 px-3">Urun / Islem Aciklamasi</th>
-                            <th class="py-2.5 px-3 text-right">Alinan Mal (Borc)</th>
-                            <th class="py-2.5 px-3 text-right">Odeme (Cikis)</th>
+                            <th class="py-2.5 px-3">Evrak / İrsaliye No</th>
+                            <th class="py-2.5 px-3">Ürün / İşlem Açıklaması</th>
+                            <th class="py-2.5 px-3 text-right">Alınan Mal (Borç)</th>
+                            <th class="py-2.5 px-3 text-right">Ödeme (Çıkış)</th>
                             <th class="py-2.5 px-3 text-right">Kalan Bakiye</th>
                             <th class="py-2.5 px-2 text-center w-10">Sil</th>
                         </tr>
@@ -357,8 +430,8 @@
                                 <td class="py-2 px-3 text-slate-600" x-text="formatDate(t.date)"></td>
                                 <td class="py-2 px-3 font-medium text-slate-700" x-text="t.doc_no"></td>
                                 <td class="py-2 px-3 text-slate-800" x-text="t.description"></td>
-                                <td class="py-2 px-3 text-right font-medium text-slate-800" x-text="t.purchase_amount > 0 ? formatCurrency(t.purchase_amount) : "-""></td>
-                                <td class="py-2 px-3 text-right font-medium text-emerald-600" x-text="t.payment_amount > 0 ? formatCurrency(t.payment_amount) : "-""></td>
+                                <td class="py-2 px-3 text-right font-medium text-slate-800" x-text="t.purchase_amount > 0 ? formatCurrency(t.purchase_amount) : '-'"></td>
+                                <td class="py-2 px-3 text-right font-medium text-emerald-600" x-text="t.payment_amount > 0 ? formatCurrency(t.payment_amount) : '-'"></td>
                                 <td class="py-2 px-3 text-right font-bold text-slate-900" x-text="formatCurrency(t.running_balance)"></td>
                                 <td class="py-2 px-2 text-center">
                                     <button @click="deleteTransaction(t.id)" class="text-slate-300 hover:text-red-600 p-1 transition"><i class="fa-solid fa-trash-can text-xs"></i></button>
@@ -366,7 +439,7 @@
                             </tr>
                         </template>
                         <tr x-show="currentStatement.transactions.length === 0">
-                            <td colspan="7" class="py-8 text-center text-slate-400">Henuz kayitli bir fatura veya odeme hareketi bulunmuyor.</td>
+                            <td colspan="7" class="py-8 text-center text-slate-400">Henüz kayıtlı bir fatura veya ödeme hareketi bulunmuyor.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -374,16 +447,54 @@
 
             <!-- Modal Footer -->
             <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-between items-center rounded-b-2xl">
-                <span class="text-xs text-slate-400" x-text="currentStatement.transactions.length + " Hareket Listelendi""></span>
+                <span class="text-xs text-slate-400" x-text="currentStatement.transactions.length + ' Hareket Listelendi'"></span>
                 <button @click="showStatementModal = false" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition">Kapat</button>
             </div>
         </div>
     </div>
 
-    <!-- Application Script (Alpine.js) -->
+    <!-- MODAL 4: ŞİFRE DEĞİŞTİR -->
+    <div x-show="showPasswordModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 border border-slate-100">
+            <div class="flex justify-between items-center border-b pb-3 border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-key text-blue-600"></i> Şifre Değiştir
+                </h3>
+                <button @click="showPasswordModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form @submit.prevent="submitChangePassword()" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Mevcut Şifre</label>
+                    <input type="password" x-model="pwForm.old_password" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Yeni Şifre</label>
+                    <input type="password" x-model="pwForm.new_password" required class="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" @click="showPasswordModal = false" class="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition">İptal</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow transition">Güncelle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Script (Alpine.js - 100% RELATIVE PATHS FOR PRODUCTION / CLOUD) -->
     <script>
-        function tekelApp() {
+        // STRICT RELATIVE PATH: Works on ANY domain, Render, Railway, localhost, or subdomain
+        const API_BASE = "";
+
+        function tekelCloudApp() {
             return {
+                isLoggedIn: false,
+                isLoading: false,
+                loginError: "",
+                token: "",
+                currentUser: { id: 1, username: "ugur", full_name: "Uğur Sukuşu" },
+
+                loginForm: { username: "ugur", password: "" },
+                pwForm: { old_password: "", new_password: "" },
+
                 kpi: {
                     total_purchase: 0,
                     total_payment: 0,
@@ -400,6 +511,7 @@
                 showNewSupplierModal: false,
                 showNewTxModal: false,
                 showStatementModal: false,
+                showPasswordModal: false,
 
                 newSupplier: { name: "", contact_person: "", phone: "", notes: "" },
                 newTx: { supplier_id: "", date: new Date().toISOString().split("T")[0], doc_no: "", description: "", tx_type: "PURCHASE", amount: "" },
@@ -409,95 +521,96 @@
                     transactions: []
                 },
 
-                async fetchDashboard() {
-                    // 1. Try Live Server
+                getHeaders() {
+                    const headers = { "Content-Type": "application/json" };
+                    if (this.token) {
+                        headers["Authorization"] = "Bearer " + this.token;
+                    }
+                    return headers;
+                },
+
+                async checkAuth() {
+                    const savedToken = localStorage.getItem("rumeli_cloud_token");
+                    if (savedToken) {
+                        this.token = savedToken;
+                        try {
+                            const res = await fetch("/api/me", { headers: this.getHeaders() });
+                            if (res.ok) {
+                                const data = await res.json();
+                                this.currentUser = data.user;
+                                this.isLoggedIn = true;
+                                await this.fetchDashboard();
+                                return;
+                            }
+                        } catch (e) {
+                            console.error("Auth verify error:", e);
+                        }
+                    }
+                    
+                    // Direct access check - if server allows unauthenticated dashboard or auto-loads
                     try {
-                        const headers = this.getHeaders ? this.getHeaders() : { "Content-Type": "application/json" };
-                        const res = await fetch("/api/dashboard", { headers: headers, signal: AbortSignal.timeout(1500) });
+                        const res = await fetch("/api/dashboard", { headers: this.getHeaders() });
                         if (res.ok) {
                             const data = await res.json();
                             this.kpi = data.kpi;
                             this.suppliers = data.suppliers;
+                            this.isLoggedIn = true;
                             return;
                         }
-                    } catch (err) { }
+                    } catch (e) { }
 
-                    // 2. Local Fallback (for file:/// mode)
-                    let rawSuppliers = JSON.parse(localStorage.getItem("rumeli_tekel_suppliers") || "null");
-                    let rawTx = JSON.parse(localStorage.getItem("rumeli_tekel_tx") || "null");
+                    this.isLoggedIn = false;
+                },
 
-                    if (!rawSuppliers) {
-                        rawSuppliers = [
-                            { id: 1, name: "WİNSTON", contact_person: "JTI Distribütör", phone: "0212 555 0101", notes: "Haftalık perşembe" },
-                            { id: 2, name: "TUBORG", contact_person: "Türk Tuborg Bayi", phone: "0212 555 0102", notes: "Pazartesi / Cuma" },
-                            { id: 3, name: "KENT", contact_person: "BAT Toptan Dağıtım", phone: "0212 555 0103", notes: "" },
-                            { id: 4, name: "EFES", contact_person: "Anadolu Efes Bayi", phone: "0212 555 0104", notes: "Çarşamba rutin teslimat" },
-                            { id: 5, name: "MALBORO", contact_person: "Philip Morris Dağıtım", phone: "0212 555 0105", notes: "" },
-                            { id: 6, name: "BEYLERBEYİ", contact_person: "Rakı Distribütörlüğü", phone: "0212 555 0106", notes: "" },
-                            { id: 7, name: "MEY", contact_person: "Mey İçki (Diageo)", phone: "0212 555 0107", notes: "Ay sonu mutabakat" },
-                            { id: 8, name: "CHİVAS", contact_person: "Pernod Ricard Dağıtım", phone: "0212 555 0108", notes: "İthal içki grubu" },
-                            { id: 9, name: "JACK", contact_person: "Brown-Forman Toptan", phone: "0212 555 0109", notes: "" },
-                            { id: 10, name: "CİPS", contact_person: "Frito Lay / PepsiCo", phone: "0212 555 0110", notes: "Salı teslimat" },
-                            { id: 11, name: "NESTLE", contact_person: "Çikolata & Kahve Toptan", phone: "0212 555 0111", notes: "" },
-                            { id: 12, name: "REDBULL", contact_person: "Red Bull Dağıtım", phone: "0212 555 0112", notes: "" },
-                            { id: 13, name: "SAFİR", contact_person: "Kuruyemiş & Bakliyat", phone: "0212 555 0113", notes: "" },
-                            { id: 14, name: "COLA", contact_person: "Coca-Cola İçecek A.Ş.", phone: "0212 555 0114", notes: "Perşembe kasa teslimi" },
-                            { id: 15, name: "PEPSİ", contact_person: "Pepsi İçecek Bayi", phone: "0212 555 0115", notes: "" },
-                            { id: 16, name: "ÜLKER", contact_person: "Bisküvi & Gıda Toptan", phone: "0212 555 0116", notes: "" },
-                            { id: 17, name: "ETİ", contact_person: "Gıda Pazarlama Bayi", phone: "0212 555 0117", notes: "" },
-                            { id: 18, name: "EMRE SUKUŞU", contact_person: "Ortak Cari / İkmal", phone: "0532 555 0118", notes: "Ana tedarik koordinasyonu" }
-                        ];
-                        localStorage.setItem("rumeli_tekel_suppliers", JSON.stringify(rawSuppliers));
+                async submitLogin() {
+                    this.isLoading = true;
+                    this.loginError = "";
+                    try {
+                        const res = await fetch("/api/login", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(this.loginForm)
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.token) {
+                            this.token = data.token;
+                            this.currentUser = data.user;
+                            localStorage.setItem("rumeli_cloud_token", this.token);
+                            this.isLoggedIn = true;
+                            await this.fetchDashboard();
+                        } else {
+                            this.loginError = data.detail || "Hatalı kullanıcı adı veya şifre.";
+                        }
+                    } catch (e) {
+                        this.loginError = "Sunucu bağlantı hatası: " + e.message;
+                    } finally {
+                        this.isLoading = false;
                     }
+                },
 
-                    if (!rawTx) {
-                        rawTx = [
-                            { id: 1, supplier_id: 18, date: "2026-09-27", doc_no: "İRS-2026-001", description: "Toptan Mal Alımı (Açılış)", tx_type: "PURCHASE", amount: 1500.0 },
-                            { id: 2, supplier_id: 18, date: "2026-09-27", doc_no: "ÖDM-2026-001", description: "Banka Havalesi / Ödeme", tx_type: "PAYMENT", amount: 1400.0 }
-                        ];
-                        localStorage.setItem("rumeli_tekel_tx", JSON.stringify(rawTx));
+                async logout() {
+                    try {
+                        await fetch("/api/logout", { method: "POST", headers: this.getHeaders() });
+                    } catch (e) { }
+                    localStorage.removeItem("rumeli_cloud_token");
+                    this.token = "";
+                    this.isLoggedIn = false;
+                    this.loginForm.password = "";
+                },
+
+                async fetchDashboard() {
+                    try {
+                        const res = await fetch("/api/dashboard", { headers: this.getHeaders() });
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.kpi = data.kpi;
+                            this.suppliers = data.suppliers;
+                        } else if (res.status === 401) {
+                            this.isLoggedIn = false;
+                        }
+                    } catch (err) {
+                        console.error("Dashboard error:", err);
                     }
-
-                    rawSuppliers.sort((a,b) => a.name.localeCompare(b.name, 'tr'));
-
-                    let totPur = 0, totPay = 0, debtors = 0, closed = 0;
-                    this.suppliers = rawSuppliers.map((s, idx) => {
-                        const supTx = rawTx.filter(t => t.supplier_id === s.id);
-                        const sPur = supTx.filter(t => t.tx_type === 'PURCHASE').reduce((a,c) => a + c.amount, 0);
-                        const sPay = supTx.filter(t => t.tx_type === 'PAYMENT').reduce((a,c) => a + c.amount, 0);
-                        const bal = sPur - sPay;
-                        totPur += sPur;
-                        totPay += sPay;
-                        if (bal > 0.005) debtors++;
-                        else closed++;
-
-                        const pRate = sPur > 0 ? (sPay / sPur * 100) : (sPay > 0 ? 100 : 0);
-                        return {
-                            seq: idx + 1,
-                            id: s.id,
-                            name: s.name,
-                            contact_person: s.contact_person || "",
-                            phone: s.phone || "",
-                            notes: s.notes || "",
-                            total_purchase: sPur,
-                            total_payment: sPay,
-                            balance: bal,
-                            pay_rate: Math.round(pRate * 10) / 10,
-                            status: bal > 0.005 ? "Ödenecek Borç Var" : (bal < -0.005 ? "Avans/Fazla Ödeme" : "Borç Kapandı"),
-                            status_color: bal > 0.005 ? "red" : (bal < -0.005 ? "blue" : "green"),
-                            tx_count: supTx.length
-                        };
-                    });
-
-                    this.kpi = {
-                        total_purchase: totPur,
-                        total_payment: totPay,
-                        net_debt: totPur - totPay,
-                        overall_pay_rate: totPur > 0 ? Math.round((totPay / totPur * 100) * 10) / 10 : 0,
-                        debtor_count: debtors,
-                        closed_count: closed,
-                        total_suppliers: this.suppliers.length
-                    };
                 },
 
                 filteredSuppliers() {
@@ -521,47 +634,23 @@
                     const trimmedName = this.newSupplier.name.trim();
                     if (!trimmedName) return;
 
-                    // 1. Try Live Server
                     try {
                         const res = await fetch("/api/suppliers", {
                             method: "POST",
-                            headers: this.getHeaders ? this.getHeaders() : { "Content-Type": "application/json" },
+                            headers: this.getHeaders(),
                             body: JSON.stringify(this.newSupplier)
                         });
+                        const data = await res.json();
                         if (res.ok) {
                             this.showNewSupplierModal = false;
                             await this.fetchDashboard();
-                            alert("'" + trimmedName.toUpperCase() + "' tedarikçisi sunucuya başarıyla kaydedildi.");
-                            return;
+                            alert("'" + trimmedName.toUpperCase() + "' tedarikçisi başarıyla kaydedildi.");
                         } else {
-                            const data = await res.json();
-                            alert(data.detail || "Bir hata oluştu.");
-                            return;
+                            alert(data.detail || "Kayıt sırasında bir hata oluştu.");
                         }
                     } catch (e) {
-                        console.warn("Sunucu çevrimdışı, yerel belleğe kaydediliyor:", e);
+                        alert("Sunucuya bağlanılamadı: " + e.message);
                     }
-
-                    // 2. Offline / Local Fallback
-                    const rawSuppliers = JSON.parse(localStorage.getItem("rumeli_tekel_suppliers") || "[]");
-                    if (rawSuppliers.some(s => s.name.toUpperCase() === trimmedName.toUpperCase())) {
-                        alert("'" + trimmedName + "' isimli tedarikçi zaten kayıtlı!");
-                        return;
-                    }
-
-                    const newId = rawSuppliers.length > 0 ? Math.max(...rawSuppliers.map(s => s.id)) + 1 : 1;
-                    rawSuppliers.push({
-                        id: newId,
-                        name: trimmedName.toUpperCase(),
-                        contact_person: this.newSupplier.contact_person.trim(),
-                        phone: this.newSupplier.phone.trim(),
-                        notes: this.newSupplier.notes.trim()
-                    });
-                    localStorage.setItem("rumeli_tekel_suppliers", JSON.stringify(rawSuppliers));
-
-                    this.showNewSupplierModal = false;
-                    await this.fetchDashboard();
-                    alert("'" + trimmedName.toUpperCase() + "' tedarikçisi başarıyla kaydedildi!");
                 },
 
                 openNewTxModal(supplierId = null) {
@@ -579,74 +668,50 @@
                 async submitNewTransaction() {
                     if (this.newTx.amount <= 0 || !this.newTx.supplier_id) return;
 
-                    // 1. Try Live Server
                     try {
                         const res = await fetch("/api/transactions", {
                             method: "POST",
-                            headers: this.getHeaders ? this.getHeaders() : { "Content-Type": "application/json" },
+                            headers: this.getHeaders(),
                             body: JSON.stringify(this.newTx)
                         });
+                        const data = await res.json();
                         if (res.ok) {
                             this.showNewTxModal = false;
                             await this.fetchDashboard();
                             if (this.showStatementModal && this.currentStatement.supplier.id === this.newTx.supplier_id) {
                                 await this.openStatement(this.newTx.supplier_id);
                             }
-                            return;
-                        }
-                    } catch (e) {
-                        console.warn("Sunucu çevrimdışı, hareket yerel belleğe kaydediliyor:", e);
-                    }
-
-                    // 2. Offline / Local Fallback
-                    const rawTx = JSON.parse(localStorage.getItem("rumeli_tekel_tx") || "[]");
-                    const newId = rawTx.length > 0 ? Math.max(...rawTx.map(t => t.id)) + 1 : 1;
-                    rawTx.push({
-                        id: newId,
-                        supplier_id: this.newTx.supplier_id,
-                        date: this.newTx.date,
-                        doc_no: this.newTx.doc_no.trim() || "-",
-                        description: this.newTx.description.trim() || "-",
-                        tx_type: this.newTx.tx_type,
-                        amount: parseFloat(this.newTx.amount)
-                    });
-                    localStorage.setItem("rumeli_tekel_tx", JSON.stringify(rawTx));
-
-                    this.showNewTxModal = false;
-                    await this.fetchDashboard();
-                    if (this.showStatementModal && this.currentStatement.supplier.id === this.newTx.supplier_id) {
-                        this.openStatement(this.newTx.supplier_id);
-                    }
-                },
-
-                openStatement(this.newTx.supplier_id);
-                            }
                         } else {
-                            alert(data.detail || "Hata olustu.");
+                            alert(data.detail || "İşlem kaydedilemedi.");
                         }
                     } catch (e) {
-                        alert("Hata: " + e.message);
+                        alert("Sunucu bağlantı hatası: " + e.message);
                     }
                 },
 
                 async openStatement(supplierId) {
                     try {
-                        const res = await fetch("/api/suppliers/" + supplierId + "/statement");
-                        const data = await res.json();
-                        this.currentStatement = data;
-                        this.showStatementModal = true;
+                        const res = await fetch("/api/suppliers/" + supplierId + "/statement", { headers: this.getHeaders() });
+                        if (res.ok) {
+                            this.currentStatement = await res.json();
+                            this.showStatementModal = true;
+                        } else {
+                            alert("Ekstre yüklenemedi.");
+                        }
                     } catch (e) {
-                        alert("Ekstre getirilemedi: " + e.message);
+                        alert("Sunucu bağlantı hatası: " + e.message);
                     }
                 },
 
                 async deleteTransaction(txId) {
-                    if (!confirm("Bu hareket kaydini silmek istediginize emin misiniz?")) return;
+                    if (!confirm("Bu hareket kaydını silmek istediğinize emin misiniz?")) return;
                     try {
-                        const res = await fetch("/api/transactions/" + txId, { method: "DELETE" });
+                        const res = await fetch("/api/transactions/" + txId, { method: "DELETE", headers: this.getHeaders() });
                         if (res.ok) {
                             await this.openStatement(this.currentStatement.supplier.id);
                             await this.fetchDashboard();
+                        } else {
+                            alert("İşlem silinemedi.");
                         }
                     } catch (e) {
                         alert("Hata: " + e.message);
@@ -654,15 +719,15 @@
                 },
 
                 async confirmDeleteSupplier(supplier) {
-                    const confirmMsg = "DIKKAT: " + supplier.name + " toptancisina ait tum fatura ve odeme kayitlari kalici olarak silinecektir! Onayliyor musunuz?";
+                    const confirmMsg = "DİKKAT: " + supplier.name + " toptancısına ait tüm fatura ve ödeme kayıtları kalıcı olarak silinecektir! Onaylıyor musunuz?";
                     if (!confirm(confirmMsg)) return;
 
                     try {
-                        const res = await fetch("/api/suppliers/" + supplier.id, { method: "DELETE" });
+                        const res = await fetch("/api/suppliers/" + supplier.id, { method: "DELETE", headers: this.getHeaders() });
                         const data = await res.json();
                         if (res.ok) {
                             await this.fetchDashboard();
-                            alert(data.message);
+                            alert(data.message || "Tedarikçi silindi.");
                         } else {
                             alert(data.detail || "Silinemedi.");
                         }
@@ -671,9 +736,34 @@
                     }
                 },
 
+                async submitChangePassword() {
+                    try {
+                        const res = await fetch("/api/change-password", {
+                            method: "POST",
+                            headers: this.getHeaders(),
+                            body: JSON.stringify(this.pwForm)
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            alert("Şifreniz başarıyla güncellendi.");
+                            this.showPasswordModal = false;
+                            this.pwForm = { old_password: "", new_password: "" };
+                        } else {
+                            alert(data.detail || "Hata oluştu.");
+                        }
+                    } catch (e) {
+                        alert("Hata: " + e.message);
+                    }
+                },
+
+                exportExcelReport() {
+                    const url = "/api/export/excel" + (this.token ? "?token=" + encodeURIComponent(this.token) : "");
+                    window.location.href = url;
+                },
+
                 formatCurrency(val) {
-                    if (val === undefined || val === null) return "0,00 TL";
-                    return Number(val).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL";
+                    if (val === undefined || val === null) return "0,00 ₺";
+                    return Number(val).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
                 },
 
                 formatDate(dateStr) {
