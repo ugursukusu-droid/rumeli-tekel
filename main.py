@@ -7,6 +7,10 @@ from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
+from fastapi import status
 import uvicorn
 import io
 import openpyxl
@@ -30,7 +34,33 @@ else:
     except Exception:
         DB_FILE = "/tmp/rumeli_cloud.db"
 
-app = FastAPI(title="Rumeli Tekel - Tedarikçi Cari & Borç Takip Sistemi (PostgreSQL & Cloud)")
+app = FastAPI(
+    title="Rumeli Tekel - Tedarikçi Cari & Borç Takip Sistemi (PostgreSQL & Cloud)", 
+    docs_url=None, 
+    redoc_url=None, 
+    openapi_url=None
+)
+
+security = HTTPBasic()
+
+def get_docs_username(credentials: HTTPBasicCredentials = Depends(security)):
+    correct_username = secrets.compare_digest(credentials.username.encode("utf8"), b"ugur")
+    correct_password = secrets.compare_digest(credentials.password.encode("utf8"), b"rumeli2026")
+    if not (correct_username and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Geliştirici paneli için yetkiniz yok",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+@app.get("/docs", include_in_schema=False)
+def get_documentation(username: str = Depends(get_docs_username)):
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Rumeli Tekel API Docs")
+
+@app.get("/openapi.json", include_in_schema=False)
+def openapi(username: str = Depends(get_docs_username)):
+    return get_openapi(title=app.title, version=app.version, routes=app.routes)
 
 app.add_middleware(
     CORSMiddleware,
