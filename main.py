@@ -260,10 +260,12 @@ init_db()
 
 def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization:
-        return {"id": 1, "username": "muslum", "full_name": "Müslüm Sazan"}
+        raise HTTPException(status_code=401, detail="Giriş yapmanız gerekiyor")
+    
     token = authorization.replace("Bearer ", "").strip()
     conn = get_db_connection()
     cursor = conn.cursor()
+    
     sql = ("""
     SELECT u.id, u.username, u.full_name
     FROM sessions s
@@ -275,11 +277,14 @@ def get_current_user(authorization: Optional[str] = Header(None)):
     JOIN users u ON s.user_id = u.id
     WHERE s.token = ?
     """)
+    
     cursor.execute(sql, (token,))
     user = cursor.fetchone()
     conn.close()
+    
     if not user:
-        return {"id": 1, "username": "muslum", "full_name": "Müslüm Sazan"}
+        raise HTTPException(status_code=401, detail="Geçersiz oturum, tekrar giriş yapın")
+    
     return dict(user)
 
 # ----------------- AUTH ENDPOINTS -----------------
