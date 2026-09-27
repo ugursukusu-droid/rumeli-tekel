@@ -410,14 +410,94 @@
                 },
 
                 async fetchDashboard() {
+                    // 1. Try Live Server
                     try {
-                        const res = await fetch("/api/dashboard");
-                        const data = await res.json();
-                        this.kpi = data.kpi;
-                        this.suppliers = data.suppliers;
-                    } catch (err) {
-                        console.error("Dashboard fetch error:", err);
+                        const headers = this.getHeaders ? this.getHeaders() : { "Content-Type": "application/json" };
+                        const res = await fetch("/api/dashboard", { headers: headers, signal: AbortSignal.timeout(1500) });
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.kpi = data.kpi;
+                            this.suppliers = data.suppliers;
+                            return;
+                        }
+                    } catch (err) { }
+
+                    // 2. Local Fallback (for file:/// mode)
+                    let rawSuppliers = JSON.parse(localStorage.getItem("rumeli_tekel_suppliers") || "null");
+                    let rawTx = JSON.parse(localStorage.getItem("rumeli_tekel_tx") || "null");
+
+                    if (!rawSuppliers) {
+                        rawSuppliers = [
+                            { id: 1, name: "WİNSTON", contact_person: "JTI Distribütör", phone: "0212 555 0101", notes: "Haftalık perşembe" },
+                            { id: 2, name: "TUBORG", contact_person: "Türk Tuborg Bayi", phone: "0212 555 0102", notes: "Pazartesi / Cuma" },
+                            { id: 3, name: "KENT", contact_person: "BAT Toptan Dağıtım", phone: "0212 555 0103", notes: "" },
+                            { id: 4, name: "EFES", contact_person: "Anadolu Efes Bayi", phone: "0212 555 0104", notes: "Çarşamba rutin teslimat" },
+                            { id: 5, name: "MALBORO", contact_person: "Philip Morris Dağıtım", phone: "0212 555 0105", notes: "" },
+                            { id: 6, name: "BEYLERBEYİ", contact_person: "Rakı Distribütörlüğü", phone: "0212 555 0106", notes: "" },
+                            { id: 7, name: "MEY", contact_person: "Mey İçki (Diageo)", phone: "0212 555 0107", notes: "Ay sonu mutabakat" },
+                            { id: 8, name: "CHİVAS", contact_person: "Pernod Ricard Dağıtım", phone: "0212 555 0108", notes: "İthal içki grubu" },
+                            { id: 9, name: "JACK", contact_person: "Brown-Forman Toptan", phone: "0212 555 0109", notes: "" },
+                            { id: 10, name: "CİPS", contact_person: "Frito Lay / PepsiCo", phone: "0212 555 0110", notes: "Salı teslimat" },
+                            { id: 11, name: "NESTLE", contact_person: "Çikolata & Kahve Toptan", phone: "0212 555 0111", notes: "" },
+                            { id: 12, name: "REDBULL", contact_person: "Red Bull Dağıtım", phone: "0212 555 0112", notes: "" },
+                            { id: 13, name: "SAFİR", contact_person: "Kuruyemiş & Bakliyat", phone: "0212 555 0113", notes: "" },
+                            { id: 14, name: "COLA", contact_person: "Coca-Cola İçecek A.Ş.", phone: "0212 555 0114", notes: "Perşembe kasa teslimi" },
+                            { id: 15, name: "PEPSİ", contact_person: "Pepsi İçecek Bayi", phone: "0212 555 0115", notes: "" },
+                            { id: 16, name: "ÜLKER", contact_person: "Bisküvi & Gıda Toptan", phone: "0212 555 0116", notes: "" },
+                            { id: 17, name: "ETİ", contact_person: "Gıda Pazarlama Bayi", phone: "0212 555 0117", notes: "" },
+                            { id: 18, name: "EMRE SUKUŞU", contact_person: "Ortak Cari / İkmal", phone: "0532 555 0118", notes: "Ana tedarik koordinasyonu" }
+                        ];
+                        localStorage.setItem("rumeli_tekel_suppliers", JSON.stringify(rawSuppliers));
                     }
+
+                    if (!rawTx) {
+                        rawTx = [
+                            { id: 1, supplier_id: 18, date: "2026-09-27", doc_no: "İRS-2026-001", description: "Toptan Mal Alımı (Açılış)", tx_type: "PURCHASE", amount: 1500.0 },
+                            { id: 2, supplier_id: 18, date: "2026-09-27", doc_no: "ÖDM-2026-001", description: "Banka Havalesi / Ödeme", tx_type: "PAYMENT", amount: 1400.0 }
+                        ];
+                        localStorage.setItem("rumeli_tekel_tx", JSON.stringify(rawTx));
+                    }
+
+                    rawSuppliers.sort((a,b) => a.name.localeCompare(b.name, 'tr'));
+
+                    let totPur = 0, totPay = 0, debtors = 0, closed = 0;
+                    this.suppliers = rawSuppliers.map((s, idx) => {
+                        const supTx = rawTx.filter(t => t.supplier_id === s.id);
+                        const sPur = supTx.filter(t => t.tx_type === 'PURCHASE').reduce((a,c) => a + c.amount, 0);
+                        const sPay = supTx.filter(t => t.tx_type === 'PAYMENT').reduce((a,c) => a + c.amount, 0);
+                        const bal = sPur - sPay;
+                        totPur += sPur;
+                        totPay += sPay;
+                        if (bal > 0.005) debtors++;
+                        else closed++;
+
+                        const pRate = sPur > 0 ? (sPay / sPur * 100) : (sPay > 0 ? 100 : 0);
+                        return {
+                            seq: idx + 1,
+                            id: s.id,
+                            name: s.name,
+                            contact_person: s.contact_person || "",
+                            phone: s.phone || "",
+                            notes: s.notes || "",
+                            total_purchase: sPur,
+                            total_payment: sPay,
+                            balance: bal,
+                            pay_rate: Math.round(pRate * 10) / 10,
+                            status: bal > 0.005 ? "Ödenecek Borç Var" : (bal < -0.005 ? "Avans/Fazla Ödeme" : "Borç Kapandı"),
+                            status_color: bal > 0.005 ? "red" : (bal < -0.005 ? "blue" : "green"),
+                            tx_count: supTx.length
+                        };
+                    });
+
+                    this.kpi = {
+                        total_purchase: totPur,
+                        total_payment: totPay,
+                        net_debt: totPur - totPay,
+                        overall_pay_rate: totPur > 0 ? Math.round((totPay / totPur * 100) * 10) / 10 : 0,
+                        debtor_count: debtors,
+                        closed_count: closed,
+                        total_suppliers: this.suppliers.length
+                    };
                 },
 
                 filteredSuppliers() {
@@ -438,23 +518,50 @@
                 },
 
                 async submitNewSupplier() {
+                    const trimmedName = this.newSupplier.name.trim();
+                    if (!trimmedName) return;
+
+                    // 1. Try Live Server
                     try {
                         const res = await fetch("/api/suppliers", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: this.getHeaders ? this.getHeaders() : { "Content-Type": "application/json" },
                             body: JSON.stringify(this.newSupplier)
                         });
-                        const data = await res.json();
                         if (res.ok) {
                             this.showNewSupplierModal = false;
                             await this.fetchDashboard();
-                            alert("Tedarikci basariyla eklendi.");
+                            alert("'" + trimmedName.toUpperCase() + "' tedarikçisi sunucuya başarıyla kaydedildi.");
+                            return;
                         } else {
-                            alert(data.detail || "Bir hata olustu.");
+                            const data = await res.json();
+                            alert(data.detail || "Bir hata oluştu.");
+                            return;
                         }
                     } catch (e) {
-                        alert("Baglanti hatasi: " + e.message);
+                        console.warn("Sunucu çevrimdışı, yerel belleğe kaydediliyor:", e);
                     }
+
+                    // 2. Offline / Local Fallback
+                    const rawSuppliers = JSON.parse(localStorage.getItem("rumeli_tekel_suppliers") || "[]");
+                    if (rawSuppliers.some(s => s.name.toUpperCase() === trimmedName.toUpperCase())) {
+                        alert("'" + trimmedName + "' isimli tedarikçi zaten kayıtlı!");
+                        return;
+                    }
+
+                    const newId = rawSuppliers.length > 0 ? Math.max(...rawSuppliers.map(s => s.id)) + 1 : 1;
+                    rawSuppliers.push({
+                        id: newId,
+                        name: trimmedName.toUpperCase(),
+                        contact_person: this.newSupplier.contact_person.trim(),
+                        phone: this.newSupplier.phone.trim(),
+                        notes: this.newSupplier.notes.trim()
+                    });
+                    localStorage.setItem("rumeli_tekel_suppliers", JSON.stringify(rawSuppliers));
+
+                    this.showNewSupplierModal = false;
+                    await this.fetchDashboard();
+                    alert("'" + trimmedName.toUpperCase() + "' tedarikçisi başarıyla kaydedildi!");
                 },
 
                 openNewTxModal(supplierId = null) {
@@ -470,18 +577,49 @@
                 },
 
                 async submitNewTransaction() {
+                    if (this.newTx.amount <= 0 || !this.newTx.supplier_id) return;
+
+                    // 1. Try Live Server
                     try {
                         const res = await fetch("/api/transactions", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: this.getHeaders ? this.getHeaders() : { "Content-Type": "application/json" },
                             body: JSON.stringify(this.newTx)
                         });
-                        const data = await res.json();
                         if (res.ok) {
                             this.showNewTxModal = false;
                             await this.fetchDashboard();
                             if (this.showStatementModal && this.currentStatement.supplier.id === this.newTx.supplier_id) {
                                 await this.openStatement(this.newTx.supplier_id);
+                            }
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn("Sunucu çevrimdışı, hareket yerel belleğe kaydediliyor:", e);
+                    }
+
+                    // 2. Offline / Local Fallback
+                    const rawTx = JSON.parse(localStorage.getItem("rumeli_tekel_tx") || "[]");
+                    const newId = rawTx.length > 0 ? Math.max(...rawTx.map(t => t.id)) + 1 : 1;
+                    rawTx.push({
+                        id: newId,
+                        supplier_id: this.newTx.supplier_id,
+                        date: this.newTx.date,
+                        doc_no: this.newTx.doc_no.trim() || "-",
+                        description: this.newTx.description.trim() || "-",
+                        tx_type: this.newTx.tx_type,
+                        amount: parseFloat(this.newTx.amount)
+                    });
+                    localStorage.setItem("rumeli_tekel_tx", JSON.stringify(rawTx));
+
+                    this.showNewTxModal = false;
+                    await this.fetchDashboard();
+                    if (this.showStatementModal && this.currentStatement.supplier.id === this.newTx.supplier_id) {
+                        this.openStatement(this.newTx.supplier_id);
+                    }
+                },
+
+                openStatement(this.newTx.supplier_id);
                             }
                         } else {
                             alert(data.detail || "Hata olustu.");
